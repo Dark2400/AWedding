@@ -85,6 +85,7 @@ class EPop(object):
         self.TOURNAMENT_COUNT = tourn
         self.PROBABILITY_MUTATE = prob
         self.FITNESS_GOAL = fitnessTarget
+        self.DIVERSITY_TEST_SIZE = 20
         self.guestList = []
         self.guests = []
         self.population = []
@@ -400,6 +401,138 @@ class EPop(object):
                 print(child)
         return;
 
+    def diversity(self, seetingA, seetingB):
+        diversity = 0
+        for i in range(1, int(self.NUMBER_OF_GUESTS) + 1):
+            seetingMatched = False
+            positionMatched = 0
+            personAIndex = seetingA.plan.index(i)
+            personA = seetingA.plan[personAIndex]
+            personRIndex = (personAIndex + 1) % int(self.TABLE_SIZE)
+            personLIndex = (personAIndex - 1) % int(self.TABLE_SIZE)
+            if seetingA.plan[personRIndex] != seetingB[personRIndex] and seetingA.plan[personRIndex] != seetingB[personLIndex]:
+                diversity += 1
+            else:
+                seetingMatched = True
+                if seetingA.plan[personRIndex] == seetingA.plan[personRIndex]:
+                    positionMatched = 0
+                else:
+                    positionMatched = 1
+            if not seetingMatched:
+                if seetingA.plan[personLIndex] != seetingB.plan[personRIndex] and seetingA.plan[i-1] != seetingB.plan[personLIndex] :
+                    diversity += 1
+            else:
+                if not positionMatched and seetingA.plan[personLIndex] != seetingB.plan[personLIndex]:
+                    diversity += 1
+                elif positionMatched and seetingA.plan[personLIndex] != seetingB.plan[personRIndex]:
+                    diversity += 1
+
+            temp = 0
+            tableA = int(personAIndex / int(self.TABLE_SIZE))
+            for j in range(1, int(self.NUMBER_OF_GUESTS) + 1):
+                personBIndex = seetingB.plan.index(j)
+                personBTable = int(personBIndex / int(self.TABLE_SIZE))
+                personB = seetingB.plan[personBIndex]
+                tableB = int(personBIndex / int(self.TABLE_SIZE))
+                if personBTable == tableA:
+                    if personBTable == tableB:
+                        temp += 1
+                
+                if personB == -1  and personA == -1:
+                    if tableA == tableB:
+                        temp += 1
+
+        diversity += (int(self.TABLE_SIZE) - 1 - temp)
+        return diversity;
+
+
+    def populationDiversity(self):
+        diversity = 0
+        # Create a list of [fitness, index] to sort
+        for i in range(len(self.population)):
+            myList.append([self.realFitness(self.population[i]), i])
+        # getKey defined to return the first element of the tuple
+        # sors in ascending order, lowest at [0] and highest at [n]
+        myList = sorted(myList, key = self.getKey, reverse = True)
+        myList = myList[0 : self.DIVERSITY_TEST_SIZE]
+        testPop = []
+        # Take the corresponding seetingArrangement objects from the combined population
+        for i in range(len(myList)):
+            testPop.append(self.population[myList[i][1]])
+        for j in range(len(testPop)):
+            for i in range(len(testPop)):
+                score = self.diversity(testPop[j], testPop[i + j])
+                diversity += score
+        return diversity;
+
+    def crowding(self, children, parents):
+        survivors = []
+        temp = []
+        dAA = self.diversity(children[0], parents[0])
+        dAB = self.diversity(children[0], parents[1])
+        dBA = self.diversity(children[1], parents[0])
+        dBB = self.diversity(children[1], parents[1])
+        fA_ = self.realFitness(children[0])
+        fB_ = self.realFitness(children[1])
+        f_A = self.realFitness(parents[0])
+        f_B = self.realFitness(parents[1])
+        #print("Diverty:\tdAA: " + str(dAA) + "\tdAB: "  + str(dAB) + "\tdBA: " + str(dBA) + "\tdBB: " + str(dBB))
+        #print("Fitness:\tfA_: " + str(fA_) + "\tfB_: " + str(fB_) + "\tf_A: " + str(f_A) + "\tF_B: " + str(f_B))
+        if dAA + dBB <= dAB + dBA:
+            if fA_ <= f_A:
+                survivors.append(children[0])
+            else:
+                survivors.append(parents[0])
+            if fB_ <= f_B:
+                survivors.append(children[1])
+            else:
+                survivors.append(parents[1])
+        else:
+            if fA_ <= f_B:
+                survivors.append(children[0])
+            else:
+                survivors.append(parents[1])
+            if fB_ <= f_A:
+                survivors.append(children[1])
+            else:
+                survivors.append(parents[0])
+        return survivors;
+
+    def getSortedList(self, pop, size):
+        myList = []
+        # Create a list of [fitness, index] to sort
+        for i in range(len(pop)):
+            myList.append([self.realFitness(pop[i]), i])
+        # getKey defined to return the first element of the tuple
+        # sors in ascending order, lowest at [0] and highest at [n]
+        myList = sorted(myList, key = self.getKey, reverse = True)
+        myList = myList[0 : size]
+        testPop = []
+        # Take the corresponding seetingArrangement objects from the combined population
+        return myList;
+
+    def selectTopFive(self, pop):
+        topFive = []
+        temp = seetingArrangement.seetingArrangement()
+        myList = self.getSortedList(pop, self.POPULATION_SIZE)
+        for i in range(len(myList)):
+            popIndex = myList[i][1]
+            if len(topFive) < 5:
+                if len(topFive) == 0:
+                    topFive.append(pop[popIndex])
+                else:
+                    if pop[popIndex] in topFive:
+                        continue;
+                    temp = topFive.pop()
+                    if self.diversity(temp, pop[popIndex]) < 5:
+                        topFive.append(temp)
+                    else:
+                        topFive.append(temp)
+                        topFive.append(pop[popIndex])
+            else:
+                break
+        return topFive;
+
     def generations(self):
         # Generation Loop: Number limits the generations, or a previously set upper/lower bound
         for i in range(self.NUMBER_OF_GENERATIONS):
@@ -407,13 +540,14 @@ class EPop(object):
             self.childPopulation = []
             # Apply a u+lambda selection by creating 6 x population size
             uB = int(self.POPULATION_SIZE) * int(self.GROWTH_RATE)
-
             for k in range(math.ceil(int(uB) / 2)):
                 if (k % math.ceil(int(uB) / 20) == 0):
                     print("||", end = "", flush = True)    
                 if self.outputActive:
                         print("Tournament selection, " + str(self.TOURNAMENT_COUNT) + " parents, " + str(self.CHILDREN_COUNT) + " offspring")
-                
+                chldren = []
+                winners = []
+                survivors = []
                 # Parent Selection - Tournament w/ replacement - 5 parents, select 2
                 winners = self.two_child_tournament()             
                 self.output("Winners / Offspring:", winners)
@@ -428,8 +562,15 @@ class EPop(object):
                 children = self.mutate(children)
                 self.output("Mutation stage: - Inversion, Pm = 0.10", children)
                 
+                # Diversity Maintenance - Crowding
+                self.output("Diversity Stage: - Crowding: Parents", winners)
+                self.output("Diversity Stage: - Crowding: Children", children)
+                survivors = self.crowding(children, winners) 
+                self.output("Diversity Stage: - Crowding: Survivors", survivors)
+
+
                 # Collect population size * growth rate
-                for child in children:
+                for child in survivors:
                     self.childPopulation.append(child)
                 # Continue
             # Extra output for loading bar
@@ -453,6 +594,10 @@ class EPop(object):
             print(best)
             if self.fitnessGoalReached(self.population):
                 self.outputCSV(best)
+                topFive = self.selectTopFive(self.population)
+                print("Top five:")
+                for child in topFive:
+                    print(child)
                 return best;
             
             # Give delay for legibility
@@ -461,12 +606,13 @@ class EPop(object):
 
         best = self.selectLowestFitness(self.population)
         print("\n" + str(self.NUMBER_OF_GENERATIONS) + " generations have elapsed.")
-        print("Best:\t" + str(best.fitness) + ":\t")
+        print("Best:\t" + str(self.realFitness(best)) + ":\t")
         print(best)
         self.outputCSV(best)
-        return best;
+        topFive = self.selectTopFive(self.population)
+        print("Top five:")
+        for child in topFive:
+            print(child)
+        return topFive;
 
-
-    def testFitness(self, plan):
-        return self.realFitness(plan)
 

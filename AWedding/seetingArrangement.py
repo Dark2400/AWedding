@@ -22,7 +22,7 @@ class seetingArrangement(object):
         output = []
         for seat in self.plan:
             if count % int(TABLE_SIZE) == 0:
-                output.append("\tT" + str(int(count / int(TABLE_SIZE))) + ": ")
+                output.append("  \tT" + str(int(count / int(TABLE_SIZE)) + 1) + ": ")
             output.append("[" + str(seat) + "]")
             count += 1
         temp = "".join(output)
