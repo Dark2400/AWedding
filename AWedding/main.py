@@ -9,16 +9,17 @@
 import EPop
 #import seetingArrangement
 
-obj1 = EPop.EPop(pop = 500, 
+obj1 = EPop.EPop(pop = 1000, 
                  children = 2, 
-                 generations = 20, 
+                 generations = 10, 
                  tourn = 5, 
                  prob = 0.2, 
                  fitnessTarget = 10, 
                  settings = "settings.txt", 
-                 guestsPref = "preferences.csv")
+                 guestsPref = "preferences.csv",
+                 output = "output.csv")
 
-#obj1.testFitness(seetingArrangement.seetingArrangement([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, -1, 12, 13, 14, -1, -1, 15]))
+#obj1.outputCSV(seetingArrangement.seetingArrangement([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, -1, 12, 13, 14, -1, -1, 15]))
 obj1.generations()
 
 

@@ -35,6 +35,19 @@ class EPop(object):
                 row.remove(row[0])
         return;
         
+    def outputCSV(self, solution):
+        line = []
+        with open(self.OUTPUT_FILE, 'w', newline = "") as outFile:
+            writeObj =  csv.writer(outFile)
+            temp = []
+            line.append(["Name", "Table Number", "Seat Number"])
+            for i in range(int(self.SEATS)):
+                temp = solution.plan[i]
+                if temp == -1:
+                    temp = "Empty Seat"
+                line.append([temp, int(i / int(self.TABLE_SIZE)) + 1, int(i % int(self.TABLE_SIZE)) + 1])
+            writeObj.writerows(line)
+        return;
 
     def initialize(self, settings, guests):
         self.readSettings(settings)
@@ -59,7 +72,7 @@ class EPop(object):
         print("||")
         return seetings;
     
-    def __init__(self, size = 0, guests = 0, tables = 0, seats = 0, pop = 0, children = 0, generations = 0, tourn = 0, prob = 0, fitnessTarget = 10, settings = "", guestsPref = ""):
+    def __init__(self, size = 0, guests = 0, tables = 0, seats = 0, pop = 0, children = 0, generations = 0, tourn = 0, prob = 0, fitnessTarget = 10, settings = "", guestsPref = "", output = ""):
         self.TABLE_SIZE = size
         self.NUMBER_OF_GUESTS = guests
         self.NUMBER_OF_TABLES = tables
@@ -78,8 +91,10 @@ class EPop(object):
         self.childPopulation = []
         self.SETTINGS_FILE = settings
         self.GUESTS_FILE = guestsPref
+        self.OUTPUT_FILE = output
         self.outputActive = False
         self.defaultLine = []
+        self.DELAY = 2
         print("\t\t\tCOEN 432 - Part A")
         print("\t\t\tPlease note, -1 is an empty seat")
         print("Population Size:\t\t" + str(self.POPULATION_SIZE))
@@ -434,19 +449,21 @@ class EPop(object):
             
             # Test for end condition
             best = self.selectLowestFitness(self.population)
-            print("Fitness Goal:\tfitness < " + str(self.FITNESS_GOAL) + "\tBest:\t" + str(self.realFitness(best)))
+            print("Fitness Goal:\t\tfitness < " + str(self.FITNESS_GOAL) + "\tBest:\t" + str(self.realFitness(best)))
             print(best)
             if self.fitnessGoalReached(self.population):
+                self.outputCSV(best)
                 return best;
             
             # Give delay for legibility
-            time.sleep(2)
+            time.sleep(self.DELAY)
 
 
         best = self.selectLowestFitness(self.population)
         print("\n" + str(self.NUMBER_OF_GENERATIONS) + " generations have elapsed.")
         print("Best:\t" + str(best.fitness) + ":\t")
         print(best)
+        self.outputCSV(best)
         return best;
 
 
