@@ -59,7 +59,9 @@ class EPop(object):
         self.NUMBER_OF_GUESTS = guests
         self.NUMBER_OF_TABLES = tables
         self.SEATS = seats
+        self.GROWTH_RATE = 6
         self.POPULATION_SIZE = pop
+        self.CHILD_POPULATION = pop * self.GROWTH_RATE
         self.CHILDREN_COUNT = children
         self.NUMBER_OF_GENERATIONS = generations
         self.TOURNAMENT_COUNT = tourn
@@ -402,6 +404,24 @@ class EPop(object):
             return True;
         else:
             return False;
+    
+    def getKey(self, plan):
+        return plan[0];
+
+    def selectSurvivor(self):
+        fullPop = self.population.copy()
+        myList = []
+        for pop in self.childPopulation:
+            fullPop.append(pop)
+        for i in range(len(fullPop)):
+            myList.append([self.realFitness(fullPop[i]), i])
+        myList = sorted(myList, key = self.getKey)
+        myList = myList[0 : self.POPULATION_SIZE]
+        returnPop = []
+        for i in range(len(myList)):
+            returnPop.append(fullPop[myList[i][1]])
+        return returnPop
+
 
     def generations(self):
         # Generation Loop:
@@ -412,7 +432,8 @@ class EPop(object):
             #    print("||", end = "", flush = True)
             print("Generation " + str(i + 1) + ":")
             self.childPopulation = []
-            for k in range(math.ceil(int(self.POPULATION_SIZE) / 2)):
+            uB = int(self.POPULATION_SIZE) * int(self.GROWTH_RATE)
+            for k in range(math.ceil(int(uB) / 2)):
                 if self.output:
                     print("Tournament selection, " + str(self.TOURNAMENT_COUNT) + " parents, " + str(self.CHILDREN_COUNT) + " offspring")
                 # Parent Selection - Tournament w/ replacement - 5 parents, select 2
@@ -453,8 +474,8 @@ class EPop(object):
                 # Child Selection   - Complete replacement 1:1
                 #                   - Generational Model
                 # New population = same size old population
-                if self.output: 
-                    print("Survivor selection: Full replacement")
+                #if self.output: 
+                #    print("Survivor selection: Full replacement")
                 for child in children:
                     if self.output: 
                         print(child)
@@ -465,17 +486,25 @@ class EPop(object):
                 print("Parent pop:")
                 for pop in self.population:
                     print(pop)
-            print("Size:\t" + str(len(self.population)) + "\tLowest Fitness:\t" + str(self.realFitness(self.selectLowestFitness(self.population))))
+            print("Parent Pop Size:\t" + str(len(self.population)) + "\tLowest Fitness:\t" + str(self.realFitness(self.selectLowestFitness(self.population))))
             if self.output2: 
                 print(lowest)
-            self.population = self.childPopulation.copy()
             if self.output2: 
                 print("Child Pop:")
+                for pop in self.childPopulation:
+                    print(pop)
+            print("Child Pop Size:\t\t" + str(len(self.childPopulation)) + "\tLowest Fitness:\t" + str(self.realFitness(self.selectLowestFitness(self.childPopulation))))
+
+            # (u + lamba) selection - top POPULATION_SIZE of childPopulation and population are used as new population
+
+            self.population = self.selectSurvivor().copy()
+
+            if self.output2: 
+                print("Parent pop:")
                 for pop in self.population:
                     print(pop)
-            print("Size:\t" + str(len(self.population)) + "\tLowest Fitness:\t" + str(self.realFitness(self.selectLowestFitness(self.population))))
-
-
+            print("New Parent Pop Size:\t" + str(len(self.population)) + "\tLowest Fitness:\t" + str(self.realFitness(self.selectLowestFitness(self.population))))
+            
             # Test for end condition
             best = self.selectLowestFitness(self.population)
             print("Fitness Goal:\tf < " + str(self.FITNESS_GOAL) + "\tBest:\t" + str(self.realFitness(best)))
