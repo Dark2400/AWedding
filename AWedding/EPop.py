@@ -32,8 +32,6 @@ class EPop(object):
             self.guestList.remove(self.guestList[0])
             for row in self.guests:
                 row.remove(row[0])
-
-            #print(self.guests)
         return;
         
 
@@ -45,10 +43,16 @@ class EPop(object):
     def populate(self):
         seetings = []
         print("Population Progress: ", end = "")
+        for num in range(1, int(self.SEATS) + 1):
+            if num <= int(self.NUMBER_OF_GUESTS):
+                self.defaultLine.append(num)
+            else:
+                self.defaultLine.append(-1)
         for i in range(self.POPULATION_SIZE):
             if (i % math.ceil(self.POPULATION_SIZE / 10) == 0):
                 print("||", end = "", flush = True)
-            plan = seetingArrangement.seetingArrangement(self.SEATS, self.NUMBER_OF_GUESTS, self.TABLE_SIZE)
+            plan = seetingArrangement.seetingArrangement(self.defaultLine)
+            # randomize plan
             plan.shuffle()
             seetings.append(plan)
         print("||")
@@ -73,15 +77,14 @@ class EPop(object):
         self.childPopulation = []
         self.SETTINGS_FILE = settings
         self.GUESTS_FILE = guestsPref
-        self.output = False
-        self.output2 = False
+        self.outputActive = False
+        self.defaultLine = []
         print("Population Size:\t\t" + str(self.POPULATION_SIZE))
         print("Number of generations:\t\t" + str(self.NUMBER_OF_GENERATIONS))
         print("Tournament selection size:\t" + str(self.TOURNAMENT_COUNT))
         print("Children from tournament:\t" + str(self.CHILDREN_COUNT))
         print("Probablity of Mutation:\t\t" + str(self.PROBABILITY_MUTATE))
         print("Fitness goal:\t\t\t" + str(self.FITNESS_GOAL))
-
         # Initialize parameters and guest list
         self.initialize(self.SETTINGS_FILE, self.GUESTS_FILE)
         # Creating initial population
@@ -157,11 +160,9 @@ class EPop(object):
     def two_child_tournament(self):
         parents = []
         random.seed(version = 2)
-        #if self.output: 
-            #print("\nParent Selection: - tournament, choose 2 offspring / 5 parents")
         for i in range (self.TOURNAMENT_COUNT):
             parents.append(self.population[random.randint(0, self.POPULATION_SIZE - 2)])
-            if self.output: 
+            if self.outputActive: 
                 print(parents[i])
         winners = []
         first = 9999999
@@ -172,7 +173,6 @@ class EPop(object):
         for row in parents:
             index += 1
             rowFit = self.realFitness(row)
-            #print(rowFit)
             if rowFit <= second:
                 if rowFit < first:
                     first = rowFit
@@ -180,14 +180,6 @@ class EPop(object):
                 else:
                     second = rowFit
                     indexSecond = index
-    
-        #print("Winners:")
-        #print("First choice:\t" + str(first))
-        #print(parents[indexFirst])
-        #print("Second:\t\t" + str(second))
-        #print(parents[indexSecond])
-        if indexFirst == indexSecond:
-            if self.output: print("Error, first and second are the same!")
         winners.append(parents[indexSecond])
         winners.append(parents[indexFirst])
 
@@ -196,8 +188,7 @@ class EPop(object):
     def orderOne(self, parents):
         children = []
         for i in range(self.CHILDREN_COUNT):
-            children.append(seetingArrangement.seetingArrangement(self.SEATS, self.NUMBER_OF_GUESTS, self.TABLE_SIZE))
-            children[i].plan = []
+            children.append(seetingArrangement.seetingArrangement(self.defaultLine))
             for k in range (self.SEATS):
                 children[i].plan.append(-2)
         length = random.randint(1, self.SEATS - 1)
@@ -249,8 +240,7 @@ class EPop(object):
             return parents;
         children = []
         for i in range(self.CHILDREN_COUNT):
-            children.append(seetingArrangement.seetingArrangement(self.SEATS, self.NUMBER_OF_GUESTS, self.TABLE_SIZE))
-            children[i].plan = []
+            children.append(seetingArrangement.seetingArrangement())
             for k in range (self.SEATS):
                 children[i].plan.append(-2)
         length = random.randint(1, self.SEATS - 1)
@@ -350,12 +340,12 @@ class EPop(object):
                     child.plan[childIndex % self.SEATS] = targetValue
                     # print("Copying: " + str(targetValue) + " to child index index: " + str(childIndex % self.SEATS))
                     # print(child)
-                    childIndex += 1
+                    childIndex = (childIndex + 1) % self.SEATS
                 else:
                     if -2 in child.plan:
                         # print("k should be lowered here: " + str(k))
                         k -= 1
-                        childIndex += 1
+                        childIndex = (childIndex + 1) % self.SEATS
                     else:
                         # print("Recomb done")
                         break
@@ -371,7 +361,7 @@ class EPop(object):
         for child in children:
             line = []
             if random.randint(0, 100) >= (100 - self.PROBABILITY_MUTATE):
-                if self.output:
+                if self.outputActive:
                     ("Mutation occured.")
                 spareChild = []
                 a = random.randint(0, int(self.NUMBER_OF_GUESTS) - 1)
@@ -422,104 +412,70 @@ class EPop(object):
             returnPop.append(fullPop[myList[i][1]])
         return returnPop
 
+    def output(self, text, pop):
+        if self.outputActive: 
+            print(text)
+            for child in pop:
+                print(child)
+        return;
 
     def generations(self):
-        # Generation Loop:
-
-        #print("Generation Progress: ", end = "")
+        # Generation Loop: Number limits the generations, or a previously set upper/lower bound
         for i in range(self.NUMBER_OF_GENERATIONS):
-            #if (i % math.ceil(self.NUMBER_OF_GENERATIONS / 10) == 0):
-            #    print("||", end = "", flush = True)
-            print("Generation " + str(i + 1) + ":")
+            print("Generation " + str(i + 1) + ":\t\t", end = "")
             self.childPopulation = []
+            # Apply a u+lambda selection by creating 6 x population size
             uB = int(self.POPULATION_SIZE) * int(self.GROWTH_RATE)
+
             for k in range(math.ceil(int(uB) / 2)):
-                if self.output:
-                    print("Tournament selection, " + str(self.TOURNAMENT_COUNT) + " parents, " + str(self.CHILDREN_COUNT) + " offspring")
+                if (k % math.ceil(int(uB) / 10) == 0):
+                    print("||", end = "", flush = True)    
+                    if self.outputActive:
+                        print("Tournament selection, " + str(self.TOURNAMENT_COUNT) + " parents, " + str(self.CHILDREN_COUNT) + " offspring")
+                
                 # Parent Selection - Tournament w/ replacement - 5 parents, select 2
-                winners = self.two_child_tournament()
-                if self.output: 
-                    print("Winners / Offspring:")
-                    for child in winners:
-                        print(child)
-                ## Recombination - Permutation - Order 1 cross-over.
-                ## TODO: PMX - 2 children
-                #if self.output: 
-                #    print("Recombination: - Order 1 crossover. TODO: PMX")
-                #children = self.orderOne(winners)
-                #if self.output: 
-                #    print("Children:")
-                #    for child in children:
-                #        print(child)
+                winners = self.two_child_tournament()             
+                self.output("Winners / Offspring:", winners)
 
                 ## Recombination - Permutation - PMX - 2 children
-                if self.output:
-                    print("Recombination: - PMX")
-                    print("Parents:")
-                    for child in winners:
-                        print(child)
-                    
+                self.output("Recombination: - PMX\nParents:", winners)
+    
                 children = self.PMX(winners)
-                if self.output:
-                    print("Children:")
-                    for child in children:
-                        print(child)
-
+                self.output("Recombination:\nChildren", children)
 
                 # Mutation - Inversion Mutation - 10% Pm
-                if self.output: 
-                    print("Mutation stage: - Inversion, Pm = 0.10")
                 children = self.mutate(children)
-
-                # Child Selection   - Complete replacement 1:1
-                #                   - Generational Model
-                # New population = same size old population
-                #if self.output: 
-                #    print("Survivor selection: Full replacement")
+                self.output("Mutation stage: - Inversion, Pm = 0.10", children)
+                
+                # Collect population size * growth rate
                 for child in children:
-                    if self.output: 
-                        print(child)
                     self.childPopulation.append(child)
                 # Continue
-
-            if self.output2: 
-                print("Parent pop:")
-                for pop in self.population:
-                    print(pop)
+            print("||")
+            self.output("Parent pop:", self.population)
             print("Parent Pop Size:\t" + str(len(self.population)) + "\tLowest Fitness:\t" + str(self.realFitness(self.selectLowestFitness(self.population))))
-            if self.output2: 
-                print(lowest)
-            if self.output2: 
-                print("Child Pop:")
-                for pop in self.childPopulation:
-                    print(pop)
+
+            self.output("Child Pop:", self.childPopulation)
             print("Child Pop Size:\t\t" + str(len(self.childPopulation)) + "\tLowest Fitness:\t" + str(self.realFitness(self.selectLowestFitness(self.childPopulation))))
 
             # (u + lamba) selection - top POPULATION_SIZE of childPopulation and population are used as new population
-
             self.population = self.selectSurvivor().copy()
-
-            if self.output2: 
-                print("Parent pop:")
-                for pop in self.population:
-                    print(pop)
+            self.output("Parent pop:", self.population)
             print("New Parent Pop Size:\t" + str(len(self.population)) + "\tLowest Fitness:\t" + str(self.realFitness(self.selectLowestFitness(self.population))))
             
             # Test for end condition
             best = self.selectLowestFitness(self.population)
-            print("Fitness Goal:\tf < " + str(self.FITNESS_GOAL) + "\tBest:\t" + str(self.realFitness(best)))
+            print("Fitness Goal:\tfitness < " + str(self.FITNESS_GOAL) + "\tBest:\t" + str(self.realFitness(best)))
             print(best)
             if self.fitnessGoalReached(self.population):
                 return best;
             time.sleep(2)
 
-        #print("||")
 
         best = self.selectLowestFitness(self.population)
         print("\n" + str(self.NUMBER_OF_GENERATIONS) + " generations have elapsed.")
         print("Best:\t" + str(best.fitness) + ":\t")
         print(best)
-
         return best;
 
 

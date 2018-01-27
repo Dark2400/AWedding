@@ -30,16 +30,8 @@ class seetingArrangement(object):
     def __getitem__(self, key):
         return self.plan[key];
 
-    def __init__(self, seats, guests, size):
-        self.plan = []
-        self.SEATS = seats
-        self.NUMBER_OF_GUESTS = guests
-        self.TABLE_SIZE = size
-        for num in range(1, int(self.SEATS) + 1):
-            if num <= int(self.NUMBER_OF_GUESTS):
-                self.plan.append(num)
-            else:
-                self.plan.append(-1)
+    def __init__(self, newPlan = []):
+        self.plan = newPlan.copy()
         return;
 
     def setFitness(self, fit):
