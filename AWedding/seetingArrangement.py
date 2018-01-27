@@ -11,6 +11,9 @@ class seetingArrangement(object):
  # [0][1][2][3][4][5][6][7][8][9]...[14][15]
  #
 
+    SEATS = 0
+    NUMBER_OF_GUESTS = 0
+    TABLE_SIZE = 0
 
     def shuffle(self):
         random.shuffle(self.plan)
@@ -28,7 +31,6 @@ class seetingArrangement(object):
         return self.plan[key];
 
     def __init__(self, seats, guests, size):
-        self.fitness = 99999999
         self.plan = []
         self.SEATS = seats
         self.NUMBER_OF_GUESTS = guests

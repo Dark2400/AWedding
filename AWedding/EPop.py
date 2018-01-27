@@ -4,6 +4,7 @@ import random
 import math
 import seetingArrangement
 import copy
+import time
 
 class EPop(object):
     def readSettings(self, fileName):
@@ -71,6 +72,7 @@ class EPop(object):
         self.SETTINGS_FILE = settings
         self.GUESTS_FILE = guestsPref
         self.output = False
+        self.output2 = False
         print("Population Size:\t\t" + str(self.POPULATION_SIZE))
         print("Number of generations:\t\t" + str(self.NUMBER_OF_GENERATIONS))
         print("Tournament selection size:\t" + str(self.TOURNAMENT_COUNT))
@@ -92,52 +94,56 @@ class EPop(object):
 
         
     def realFitness(self, plan):
-        personA = -2
-        personB = -2
+        personAIndex = -2
+        personBIndex = -2
         rating = 0
         penalty = 0
         posOrNeg = 0
         sameTable = False
-        for i in range (int(self.NUMBER_OF_GUESTS) - 1):
-            personA = i
-            for k in range (int(self.NUMBER_OF_GUESTS) - 1):
+        for i in range (1, int(self.NUMBER_OF_GUESTS)):
+            personAIndex = plan.plan.index(i)
+            for k in range (1, int(self.NUMBER_OF_GUESTS)):
                 sameTable = False
-                personB = k   
+                personBIndex = plan.plan.index(k)   
                 # Check if same person
-                if personA == personB: 
+                if plan[personAIndex] == plan[personBIndex]: 
                     #print("Skip - Same Person")
                     continue;
-                # Check rating between personA and personB
-                rating = self.guests[personA][personB]
-                tableA = int(i / int(self.TABLE_SIZE))
-                tableB = int(k / int(self.TABLE_SIZE))
+                # Check rating between personAIndex and personBIndex
+                rating = self.guests[i-1][k-1]
+                if rating == "3":
+                    continue
+                tableA = int(personAIndex / int(self.TABLE_SIZE))
+                tableB = int(personBIndex / int(self.TABLE_SIZE))
                 if tableA == tableB:
                     sameTable = True
-                seatR = (i + 1) % int(self.TABLE_SIZE)
-                if i == 0:
-                    seatL = 5
-                seatL = (i - 1) % int(self.TABLE_SIZE)
+                currentTable = tableA
+                seatR = (personAIndex + 1) % int(self.TABLE_SIZE)
+                seatL = (personAIndex - 1) % int(self.TABLE_SIZE)
+                if seatL < 0:
+                    seatL += int(self.TABLE_SIZE)
+                tableOffset = int(tableA) * int(self.TABLE_SIZE)
                 # Due to check above, assume MUST BE ON SAME TABLE
                 if rating == "1": # Not near
                     if sameTable:
                         # if person is NEXT TO
-                        if personB == plan[seatR] or personB == plan[seatL]:
+                        if personBIndex == seatR + tableOffset or personBIndex == seatL + tableOffset:
                             penalty += 15
                         else:
                             penalty += 10
                 elif rating == "2": # Not next-to
                     if sameTable:
-                        if personB == plan[seatR] or personB == plan[seatL]:
+                        if personBIndex == seatR + tableOffset or personBIndex == seatL + tableOffset:
                             penalty += 15
                 elif rating == "4": # Sits Next-to
                     if not sameTable: # Not on same table
-                        # if personB is not same table as personA
+                        # if personBIndex is not same table as personAIndex
                         penalty += 10     
                 elif rating == "5": # Sits near to
                     if not sameTable: 
                         penalty += 20
                     else: # Sitting on same table
-                        if personB != plan[seatR] and personB != plan[seatL]:
+                        if personBIndex != seatR + tableOffset and personBIndex != seatL + tableOffset:
                             penalty += 15 # Same table, but not next to
                 #else:
                     #print("Rating 3 or empty:\t" + str(rating))
@@ -235,57 +241,129 @@ class EPop(object):
 
         return children;
 
-    #def PMX(self, parents):
-    #    children = []
-    #    for i in range(self.CHILDREN_COUNT):
-    #        children.append(seetingArrangement.seetingArrangement(self.SEATS, self.NUMBER_OF_GUESTS, self.TABLE_SIZE))
-    #        children[i].plan = []
-    #        for k in range (self.SEATS):
-    #            children[i].plan.append(-2)
-    #    length = random.randint(1, self.SEATS - 1)
-    #    print("Length:\t" + str(length))
-    #    startIndex = random.randint(0, self.SEATS - length)
-    #    print("Index: \t" + str(startIndex))
-    #    i = -1
-    #    for child in children:
-    #        i += 1
-    #        emptySeats = 0
-    #        # Copy subset to child
-    #        for k in range (startIndex, startIndex + length):
-    #            child.plan[k % self.SEATS] = parents[i][k % self.SEATS]
-    #            print(child)
-    #            if parents[i][k % self.SEATS] == -1:
-    #                emptySeats =+ 1
-    #            # Starting from crossover, look for elements not yet copied
-    #        for k in range (startIndex, startIndex + length):
-    #            eye = parents[(i + 1) % 2].plan[k % self.SEATS]
-    #            self.recursiveCrossing(i, k, eye, child, parents, emptySeats)
+    def PMX(self, parents):
+        if parents[0] == parents[1]:
+            # print("Same genotype in parents, recombination does nothing")
+            return parents;
+        children = []
+        for i in range(self.CHILDREN_COUNT):
+            children.append(seetingArrangement.seetingArrangement(self.SEATS, self.NUMBER_OF_GUESTS, self.TABLE_SIZE))
+            children[i].plan = []
+            for k in range (self.SEATS):
+                children[i].plan.append(-2)
+        length = random.randint(1, self.SEATS - 1)
+        # print("Length:\t" + str(length))
+        startIndex = random.randint(0, self.SEATS - length)
+        # print("Index: \t" + str(startIndex))
+        i = -1
+        for child in children:
+            i += 1
+            emptySeats = 0
+            # Copy subset to child
+            # print("StartIndex: " + str(startIndex))
+            for k in range (startIndex, startIndex + length):
+                child.plan[k % self.SEATS] = parents[i][k % self.SEATS]
+                # print(child)
+            # Starting from crossover, look for elements not yet copied
+            for k in range (startIndex, startIndex + length):
+                emptySeats = child.plan.count(-1)
+                value = parents[(i + 1) % 2].plan[k % self.SEATS]
+                valueIndex = k
+                # print("Target:\t", end = "")
+                # print(value)
+                # Check if in copied subset
+                count = emptySeats 
+                while (True): 
+                    # print("EmptySeats: " + str(emptySeats))
+                    if value in child.plan:
+                        # Allow for empty seats
+                        if value == -1:
+                            if count < int(self.SEATS) - int(self.NUMBER_OF_GUESTS):
+                                # print("Count: " + str(count))
+                                count += 1
+                                break
+                            else:
+                                # print("Skip placing: " + str(value))
+                                break
+                        else:
+                            # print("Skip placing: " + str(value))
+                            break # If max empty seats reached, skip
+                
+                    valueIndex = parents[(i + 1) % 2].plan.index(value);
+                    # Selecting value from index in other parent
+                    altValue = parents[i].plan[valueIndex]
+                    # print("AltValue: " + str(altValue))
+                    # print("EmptySeats: " + str(emptySeats))
+                    count = 0
+                    if altValue == -1:
+                        for num in range(self.SEATS -1):
+                            if parents[(i + 1) % 2].plan[num] == -1:
+                                if emptySeats >= int(self.SEATS) - int(self.NUMBER_OF_GUESTS):
+                                    # print("No empty seats, skipping -1")
+                                    count += 1
+                                    continue
+                                if count == emptySeats:
+                                    # print("Picking -1 at index: " + str(num))
+                                    valueIndex = num
+                                    break
+                                elif count < emptySeats:
+                                    if child.plan[num] == -2:
+                                        # print("-1 not used, using this one")
+                                        valueIndex = num
+                                        break
+                                    else:
+                                        # print("spot already used, going to next -1")
+                                        count += 1
+                                    
+                    else:
+                        valueIndex = parents[(i + 1) % 2].plan.index(altValue)
+                    # print("newValueIndex: " + str(valueIndex))
+                    if valueIndex >= startIndex and valueIndex <= startIndex + length - 1:
+                        value = altValue
+                        # print("index currently occupied in child, trying again with value: " + str(value))
+                        continue
+                    child.plan[valueIndex % self.SEATS] = value
+                    # print(child)
+                    break
 
-    #    return children;
+            # Copy over the reamiaing values
+            childIndex = startIndex + length
+            k = startIndex + length - 1
+            while k < int(startIndex) + int(length) + 1 + int(self.SEATS):
+                k += 1
+                emptySeats = child.plan.count(-1)
+                targetValue = parents[(i + 1) % 2].plan[k % self.SEATS]
+                # print("Parent Index: " + str(k % self.SEATS) + " Child Index: " + str(childIndex % self.SEATS) + " child's index value: " + str(child.plan[childIndex % self.SEATS]) + " targetValue: " + str(targetValue))
+                if child.plan[childIndex % self.SEATS] == -2:
+                    if targetValue in child.plan:
+                        if targetValue == -1:
+                           if emptySeats < int(self.SEATS) - int(self.NUMBER_OF_GUESTS):
+                               emptySeats += 1
+                           else:
+                                # print("Skip " + str(targetValue))
+                                continue
+                        else:
+                            # print("Skip " + str(targetValue))
+                            continue
+                    child.plan[childIndex % self.SEATS] = targetValue
+                    # print("Copying: " + str(targetValue) + " to child index index: " + str(childIndex % self.SEATS))
+                    # print(child)
+                    childIndex += 1
+                else:
+                    if -2 in child.plan:
+                        # print("k should be lowered here: " + str(k))
+                        k -= 1
+                        childIndex += 1
+                    else:
+                        # print("Recomb done")
+                        break
+            # print("parents")
+            #for parent in parents:
+                # print(parent)
+            # print("Remaining elements copied, child:")
+            # print(child)
+        return children;
 
-    #def recursiveCrossing(self, i, k, value, child, parents, emptySeats):
-    #    print("Target:\t", end = "")
-    #    print(value)
-    #    if value in child.plan:
-    #        if value == -1:
-    #            if emptySeats < int(self.SEATS) - int(self.NUMBER_OF_GUESTS):
-    #                emptySeats =+ 1
-    #        print("Skip")
-    #        return;
-    #    jay = child.plan[k % self.SEATS]
-    #    indexJay = parents[(i + 1) % 2].plan.index(jay)
-    #    kay = child.plan[indexJay]
-    #    if kay != -2:
-    #        self.recursiveCrossing(i, k, value, child, parents, emptySeats)
-    #    else:
-    #        child.plan[indexJay] = value
-    #    print(child)
-    #    for k in range(startIndex + length + 1, startIndex + length + self.SEATS - 1):
-    #        if child.plan[k % self.SEATS] == -2:
-    #            child.plan[k % self.SEATS]= parents[(i + 1) % 2][k % self.SEATS]
-    #        else:
-    #            return;
-    #    return;
 
     def mutate(self, children):
         for child in children:
@@ -335,31 +413,36 @@ class EPop(object):
             print("Generation " + str(i + 1) + ":")
             self.childPopulation = []
             for k in range(math.ceil(int(self.POPULATION_SIZE) / 2)):
-
+                if self.output:
+                    print("Tournament selection, " + str(self.TOURNAMENT_COUNT) + " parents, " + str(self.CHILDREN_COUNT) + " offspring")
                 # Parent Selection - Tournament w/ replacement - 5 parents, select 2
                 winners = self.two_child_tournament()
-    
+                if self.output: 
+                    print("Winners / Offspring:")
+                    for child in winners:
+                        print(child)
                 ## Recombination - Permutation - Order 1 cross-over.
                 ## TODO: PMX - 2 children
-                if self.output: 
-                    print("Recombination: - Order 1 crossover. TODO: PMX")
-                children = self.orderOne(winners)
+                #if self.output: 
+                #    print("Recombination: - Order 1 crossover. TODO: PMX")
+                #children = self.orderOne(winners)
+                #if self.output: 
+                #    print("Children:")
+                #    for child in children:
+                #        print(child)
 
-                if self.output: 
+                ## Recombination - Permutation - PMX - 2 children
+                if self.output:
+                    print("Recombination: - PMX")
+                    print("Parents:")
+                    for child in winners:
+                        print(child)
+                    
+                children = self.PMX(winners)
+                if self.output:
                     print("Children:")
                     for child in children:
                         print(child)
-
-                ## Recombination - Permutation - PMX - 2 children
-                #print("Parents:")
-                #for child in winners:
-                #    print(child)
-                #print("Recombination: -  PMX")
-                #children = self.PMX(winners)
-
-                #print("Children:")
-                #for child in children:
-                #    print(child)
 
 
                 # Mutation - Inversion Mutation - 10% Pm
@@ -367,39 +450,30 @@ class EPop(object):
                     print("Mutation stage: - Inversion, Pm = 0.10")
                 children = self.mutate(children)
 
-
-    
                 # Child Selection   - Complete replacement 1:1
                 #                   - Generational Model
                 # New population = same size old population
+                if self.output: 
+                    print("Survivor selection: Full replacement")
                 for child in children:
                     if self.output: 
                         print(child)
                     self.childPopulation.append(child)
                 # Continue
 
-            if self.output: 
+            if self.output2: 
                 print("Parent pop:")
-            count = 0
-            for pop in self.population:
-                if self.output:
+                for pop in self.population:
                     print(pop)
-                count += 1
-            if self.output: 
-                print("Size:\t" + str(count), + "\tLowest Fitness:\t", end = "")
-            lowest = str(self.realFitness(self.selectLowestFitness(self.population)))
-            if self.output: 
+            print("Size:\t" + str(len(self.population)) + "\tLowest Fitness:\t" + str(self.realFitness(self.selectLowestFitness(self.population))))
+            if self.output2: 
                 print(lowest)
             self.population = self.childPopulation.copy()
-
-            if self.output: print("Child Pop:")
-            count = 0
-            for pop in self.childPopulation:
-                if self.output:
+            if self.output2: 
+                print("Child Pop:")
+                for pop in self.population:
                     print(pop)
-                count += 1
-            if self.output: 
-                print("Size:\t" + str(count) + "\tLowest Fitness:\t" + str(self.realFitness(self.selectLowestFitness(self.population))))
+            print("Size:\t" + str(len(self.population)) + "\tLowest Fitness:\t" + str(self.realFitness(self.selectLowestFitness(self.population))))
 
 
             # Test for end condition
@@ -408,7 +482,7 @@ class EPop(object):
             print(best)
             if self.fitnessGoalReached(self.population):
                 return best;
-
+            time.sleep(2)
 
         #print("||")
 
@@ -420,4 +494,6 @@ class EPop(object):
         return best;
 
 
+    def testFitness(self, plan):
+        return self.realFitness(plan)
 
