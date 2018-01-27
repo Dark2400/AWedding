@@ -105,11 +105,11 @@ class EPop(object):
         posOrNeg = 0
         sameTable = False
         # For each guest
-        for i in range (1, int(self.NUMBER_OF_GUESTS)):
+        for i in range (1, int(self.NUMBER_OF_GUESTS) + 1):
             # Find their index
             personAIndex = plan.plan.index(i)
             # For each other guests
-            for k in range (1, int(self.NUMBER_OF_GUESTS)):
+            for k in range (1, int(self.NUMBER_OF_GUESTS) + 1):
                 sameTable = False
                 # Find ta index
                 personBIndex = plan.plan.index(k)   
