@@ -5,6 +5,8 @@ import math
 import seetingArrangement
 import copy
 import time
+import sys
+import os
 
 class EPop(object):
     def readSettings(self, fileName):
@@ -47,7 +49,7 @@ class EPop(object):
                     temp = "Empty Seat"
                 line.append([temp, int(i / int(self.TABLE_SIZE)) + 1, int(i % int(self.TABLE_SIZE)) + 1])
             writeObj.writerows(line)
-        return;
+        return True;
 
     def initialize(self, settings, guests):
         self.readSettings(settings)
@@ -375,19 +377,14 @@ class EPop(object):
     def getKey(self, plan):
         return plan[0];
 
-    def selectSurvivor(self):
-        fullPop = self.population.copy()
-        myList = []
-        for pop in self.childPopulation:
-            fullPop.append(pop)
+    def selectSurvivor(self, isChildOnly):
+        fullPop = self.childPopulation.copy()
+        # Allows for either u+lamda(False) or u,lambda selection(True)
+        if not isChildOnly:
+            for pop in self.population:
+                fullPop.append(pop)
         # Create a list of [fitness, index] to sort
-        for i in range(len(fullPop)):
-            myList.append([self.realFitness(fullPop[i]), i])
-        # getKey defined to return the first element of the tuple
-        # sors in ascending order, lowest at [0] and highest at [n]
-        myList = sorted(myList, key = self.getKey)
-        # take lowest POPULATION_SIZE
-        myList = myList[0 : self.POPULATION_SIZE]
+        myList = self.getSortedList(fullPop, self.POPULATION_SIZE, False)
         returnPop = []
         # Take the corresponding seetingArrangement objects from the combined population
         for i in range(len(myList)):
@@ -405,65 +402,91 @@ class EPop(object):
         diversity = 0
         for i in range(1, int(self.NUMBER_OF_GUESTS) + 1):
             seetingMatched = False
-            positionMatched = 0
+            positionMatchedIsLeft = False
             personAIndex = seetingA.plan.index(i)
-            personA = seetingA.plan[personAIndex]
-            personRIndex = (personAIndex + 1) % int(self.TABLE_SIZE)
-            personLIndex = (personAIndex - 1) % int(self.TABLE_SIZE)
-            if seetingA.plan[personRIndex] != seetingB[personRIndex] and seetingA.plan[personRIndex] != seetingB[personLIndex]:
+            personATable = int(personAIndex / int(self.TABLE_SIZE)) + 1
+            personA = i
+            personBIndex = seetingB.plan.index(i)
+            personBTable = int(personBIndex / int(self.TABLE_SIZE)) + 1
+            personB = i
+            personARIndex = (personAIndex + 1) % int(self.TABLE_SIZE)
+            personALIndex = (personAIndex - 1) % int(self.TABLE_SIZE)
+            personBRIndex = (personBIndex + 1) % int(self.TABLE_SIZE)
+            personBLIndex = (personBIndex - 1) % int(self.TABLE_SIZE)
+            if seetingA.plan[personARIndex] != seetingB[personBRIndex] and seetingA.plan[personARIndex] != seetingB[personBLIndex]:
                 diversity += 1
             else:
                 seetingMatched = True
-                if seetingA.plan[personRIndex] == seetingA.plan[personRIndex]:
-                    positionMatched = 0
+                if seetingA.plan[personARIndex] == seetingB.plan[personBRIndex]:
+                    positionMatchedIsLeft = False
                 else:
-                    positionMatched = 1
+                    positionMatchedIsLeft = True
             if not seetingMatched:
-                if seetingA.plan[personLIndex] != seetingB.plan[personRIndex] and seetingA.plan[i-1] != seetingB.plan[personLIndex] :
+                if seetingA.plan[personALIndex] != seetingB.plan[personBRIndex] and seetingA.plan[personALIndex] != seetingB.plan[personBLIndex] :
                     diversity += 1
             else:
-                if not positionMatched and seetingA.plan[personLIndex] != seetingB.plan[personLIndex]:
+                if not positionMatchedIsLeft and seetingA.plan[personALIndex] != seetingB.plan[personBLIndex]:
                     diversity += 1
-                elif positionMatched and seetingA.plan[personLIndex] != seetingB.plan[personRIndex]:
+                elif positionMatchedIsLeft and seetingA.plan[personALIndex] != seetingB.plan[personBRIndex]:
                     diversity += 1
 
             temp = 0
-            tableA = int(personAIndex / int(self.TABLE_SIZE))
             for j in range(1, int(self.NUMBER_OF_GUESTS) + 1):
-                personBIndex = seetingB.plan.index(j)
-                personBTable = int(personBIndex / int(self.TABLE_SIZE))
-                personB = seetingB.plan[personBIndex]
-                tableB = int(personBIndex / int(self.TABLE_SIZE))
-                if personBTable == tableA:
-                    if personBTable == tableB:
-                        temp += 1
-                
-                if personB == -1  and personA == -1:
-                    if tableA == tableB:
+                # skip same person
+                if j == i:
+                    continue
+                personCIndex = seetingB.plan.index(j)
+                personCTable = int(personCIndex / int(self.TABLE_SIZE)) + 1
+                personC = j
+                if personCTable == personATable:
+                    if personCTable == personBTable:
                         temp += 1
 
-        diversity += (int(self.TABLE_SIZE) - 1 - temp)
+            empty = [0, 0]
+            for w in range(int(self.TABLE_SIZE)):
+                if personATable == personBTable:
+                    currentSeat = w + ( (personATable - 1) * int(self.TABLE_SIZE) )
+                    if seetingA.plan[currentSeat] == -1:
+                        empty[0] += 1
+                    if seetingB.plan[currentSeat] == -1:
+                        empty[1] += 1
+                    if empty[0] == empty[1] and empty[0] != 0:
+                        if empty[0] >= empty[1]:
+                            for j in range(empty[1]):
+                                temp += 1
+                        else:
+                            for j in range(empty[0]):
+                                temp += 1
+            #print(empty)
+            #print("Diversity:\t" + str(diversity) + "\ttemp:\t" + str(temp))
+            diversity += (int(self.TABLE_SIZE) - 1 - temp)
         return diversity;
 
 
-    def populationDiversity(self):
+    def populationDiversity(self, pop):
         diversity = 0
-        # Create a list of [fitness, index] to sort
-        for i in range(len(self.population)):
-            myList.append([self.realFitness(self.population[i]), i])
-        # getKey defined to return the first element of the tuple
-        # sors in ascending order, lowest at [0] and highest at [n]
-        myList = sorted(myList, key = self.getKey, reverse = True)
-        myList = myList[0 : self.DIVERSITY_TEST_SIZE]
+        myList = self.getSortedList(pop, self.DIVERSITY_TEST_SIZE, True)
         testPop = []
         # Take the corresponding seetingArrangement objects from the combined population
         for i in range(len(myList)):
-            testPop.append(self.population[myList[i][1]])
+            testPop.append(pop[myList[i][1]])
         for j in range(len(testPop)):
-            for i in range(len(testPop)):
-                score = self.diversity(testPop[j], testPop[i + j])
+            for i in range(j+1, len(testPop)):
+                score = self.diversity(testPop[j], testPop[j])
                 diversity += score
         return diversity;
+
+    def getSortedList(self, pop, size, isDescending):
+        myList = []
+        # Create a list of [fitness, index] to sort
+        for i in range(len(pop)):
+            myList.append([self.realFitness(pop[i]), i])
+        # getKey defined to return the first element of the tuple
+        # sors in ascending order, lowest at [0] and highest at [n]
+        myList = sorted(myList, key = self.getKey, reverse = isDescending)
+        myList = myList[0 : size]
+        return myList;
+
 
     def crowding(self, children, parents):
         survivors = []
@@ -498,23 +521,12 @@ class EPop(object):
                 survivors.append(parents[0])
         return survivors;
 
-    def getSortedList(self, pop, size):
-        myList = []
-        # Create a list of [fitness, index] to sort
-        for i in range(len(pop)):
-            myList.append([self.realFitness(pop[i]), i])
-        # getKey defined to return the first element of the tuple
-        # sors in ascending order, lowest at [0] and highest at [n]
-        myList = sorted(myList, key = self.getKey, reverse = True)
-        myList = myList[0 : size]
-        testPop = []
-        # Take the corresponding seetingArrangement objects from the combined population
-        return myList;
+
 
     def selectTopFive(self, pop):
         topFive = []
         temp = seetingArrangement.seetingArrangement()
-        myList = self.getSortedList(pop, self.POPULATION_SIZE)
+        myList = self.getSortedList(pop, self.POPULATION_SIZE, False)
         for i in range(len(myList)):
             popIndex = myList[i][1]
             if len(topFive) < 5:
@@ -524,7 +536,7 @@ class EPop(object):
                     if pop[popIndex] in topFive:
                         continue;
                     temp = topFive.pop()
-                    if self.diversity(temp, pop[popIndex]) < 5:
+                    if self.diversity(temp, pop[popIndex]) < 0:
                         topFive.append(temp)
                     else:
                         topFive.append(temp)
@@ -576,17 +588,26 @@ class EPop(object):
             # Extra output for loading bar
             print("||")
 
+            #self.outputActive = True
             # Output to demonstrate
             self.output("Parent pop:", self.population)
-            print("Parent Pop Size:\t" + str(len(self.population)) + "\tLowest Fitness:\t" + str(self.realFitness(self.selectLowestFitness(self.population))))
+            print("Parent Pop Size:\t" + str(len(self.population)) + "\tLowest Fitness:\t" + str(self.realFitness(self.selectLowestFitness(self.population))) + "\tDiversity:\t" + str(self.populationDiversity(self.population)))
 
             self.output("Child Pop:", self.childPopulation)
-            print("Child Pop Size:\t\t" + str(len(self.childPopulation)) + "\tLowest Fitness:\t" + str(self.realFitness(self.selectLowestFitness(self.childPopulation))))
+            print("Child Pop Size:\t\t" + str(len(self.childPopulation)) + "\tLowest Fitness:\t" + str(self.realFitness(self.selectLowestFitness(self.childPopulation))) + "\tDiversity:\t" + str(self.populationDiversity(self.childPopulation)))
 
-            # (u + lamba) selection - top POPULATION_SIZE of childPopulation and population are used as new population
-            self.population = self.selectSurvivor().copy()
+            ## (u + lamba) selection - top POPULATION_SIZE of childPopulation and population are used as new population
+            #self.population = self.selectSurvivor(False).copy()
+            #self.output("New Parent Pop:", self.population)
+            #print("New Parent Pop Size:\t" + str(len(self.population)) + "\tLowest Fitness:\t" + str(self.realFitness(self.selectLowestFitness(self.population))) + "\tDiversity:\t" + str(self.populationDiversity(self.population)))
+            
+            # (u, lamba) selection - top POPULATION_SIZE of childPopulation and population are used as new population
+            self.population = self.selectSurvivor(True).copy()
             self.output("New Parent Pop:", self.population)
-            print("New Parent Pop Size:\t" + str(len(self.population)) + "\tLowest Fitness:\t" + str(self.realFitness(self.selectLowestFitness(self.population))))
+            print("New Parent Pop Size:\t" + str(len(self.population)) + "\tLowest Fitness:\t" + str(self.realFitness(self.selectLowestFitness(self.population))) + "\tDiversity:\t" + str(self.populationDiversity(self.population)))
+
+
+            self.outputActive = False            
             
             # Test for end condition
             best = self.selectLowestFitness(self.population)
@@ -596,6 +617,7 @@ class EPop(object):
                 self.outputCSV(best)
                 topFive = self.selectTopFive(self.population)
                 print("Top five:")
+                last = []
                 for child in topFive:
                     print(child)
                 return best;
@@ -616,3 +638,95 @@ class EPop(object):
         return topFive;
 
 
+    def testSuite(self):
+        default = seetingArrangement.seetingArrangement([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, -1, 12, 13, 14, -1, -1, 15])
+        if self.realFitness(default) == 0:
+            print("Fitness check succeeded")
+        else:
+            print("Fitness check failed")
+        if self.outputCSV(default):
+            print("Output check succeeded")
+        else:
+            print("Output check failed")
+        temp = self.diversity(default, default)
+        print(temp)
+        if  temp == -12:
+            print("Diversity check succeeded")
+        else:
+            print("Diversity check failed")
+
+        temp = seetingArrangement.seetingArrangement([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, -1, 12, 13, 14, -1, -1, 15])
+        if temp.plan == default.plan:
+            temp.shuffle()
+            if temp.plan == default.plan:
+                print("Object Shuffle failed")
+            else:
+                print("Object Shuffle succeeded")
+        else:
+            print("Object matching failed")
+
+
+        self.blockPrint()
+        self.NUMBER_OF_TABLES = 0
+        self.TABLE_SIZE = 0
+        self.NUMBER_OF_GUESTS =0
+        self.NUMBER_OF_TABLES = 0
+        self.SEATS = 0
+        self.readSettings("settings.txt")
+        self.enablePrint()
+        if self.NUMBER_OF_TABLES != 0 and self.TABLE_SIZE != 0 and self.NUMBER_OF_GUESTS != 0 and self.NUMBER_OF_TABLES != 0 and self.SEATS != 0:
+            print("Settings read succeeded")
+        else:
+            print("Settings read failed")
+        
+        self.blockPrint()
+        self.guestList = []
+        self.guests = []
+        self.readGuests("preferences.csv")
+        self.enablePrint()
+        if len(self.guestList) > 0 and len(self.guests) > 0:
+            print("Preferences read succeeded")
+        else:
+            print("Preferences read failed")        
+        
+        self.blockPrint()
+        self.population = []
+        self.population = self.populate()
+        self.enablePrint()
+        if len(self.population) > 0:
+            print("Populate succeeded")
+        else:
+            print("Populate failed")  
+            
+        parents = []
+        children = []
+        parents = self.two_child_tournament()
+        children = self.two_child_tournament()
+        if parents[0] != children[0] and parents[0] != children[1] and parents[1] != children[0] and parents[1] != children[1]:
+            print("Two child tournament succeeded (Not a thorough test)")
+        else:
+            print("Two child tournament failed (Not a thorough test)") 
+
+
+        temp = seetingArrangement.seetingArrangement([10, 3, 7, 4, 5, 6, 2, 8, 9, 1, 11, -1, 15, 13, 14, -1, -1, 12])
+        parents = []
+        parents.append(temp)
+        parents.append(default)
+        temp = seetingArrangement.seetingArrangement([10, 3, 7, 4, 5, 6, 2, 8, 9, 1, 11, -1, 15, 13, 14, -1, -1, 12])
+        default = seetingArrangement.seetingArrangement([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, -1, 12, 13, 14, -1, -1, 15])
+        parents = self.PMX(parents)
+        if parents[0].plan != temp.plan and parents[1].plan != default.plan:
+            print("PMX succeeded (Not a thorough test)")
+        else:
+            print("PMX failed (Not a thorough test)") 
+
+        # TODO: Crowding, selectTop Five, selectLowestFitness, selectSurvivor
+
+        return;
+
+    
+    def blockPrint(self):
+        sys.stdout = open(os.devnull, 'w')
+
+    def enablePrint(self):
+        sys.stdout = sys.__stdout__
