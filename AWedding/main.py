@@ -9,7 +9,7 @@
 import EPop
 import seetingArrangement
 
-obj1 = EPop.EPop(pop = 200, 
+obj1 = EPop.EPop(pop = 500, 
                  children = 2, 
                  generations = 10, 
                  tourn = 5, 
