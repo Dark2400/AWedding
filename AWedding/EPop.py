@@ -56,23 +56,26 @@ class EPop(object):
         self.readGuests()
         return;
 
-    def populate(self):
-        seetings = []
-        self.defaultLine = []
-        print("Population Progress: ", end = "")
-        for num in range(1, int(self.SEATS) + 1):
-            if num <= int(self.NUMBER_OF_GUESTS):
-                self.defaultLine.append(num)
-            else:
-                self.defaultLine.append(-1)
-        for i in range(self.POPULATION_SIZE):
-            if (i % math.ceil(self.POPULATION_SIZE / 10) == 0):
-                print("||", end = "", flush = True)
-            plan = seetingArrangement.seetingArrangement(self.defaultLine)
-            # randomize seeting plan
-            plan.shuffle()
-            seetings.append(plan)
-        print("||")
+    def populate(self, pop = []):
+        if len(pop) < 1:
+            seetings = []
+            self.defaultLine = []
+            print("Population Progress: ", end = "")
+            for num in range(1, int(self.SEATS) + 1):
+                if num <= int(self.NUMBER_OF_GUESTS):
+                    self.defaultLine.append(num)
+                else:
+                    self.defaultLine.append(-1)
+            for i in range(self.POPULATION_SIZE):
+                if (i % math.ceil(self.POPULATION_SIZE / 10) == 0):
+                    print("||", end = "", flush = True)
+                plan = seetingArrangement.seetingArrangement(self.defaultLine)
+                # randomize seeting plan
+                plan.shuffle()
+                seetings.append(plan)
+            print("||")
+        else:
+            seetings = pop
         return seetings;
     
     def __init__(self, size = 6, guests = 15, tables = 3, seats = 18, pop = 200, children = 2, generations = 10, tourn = 5, prob = 0.1, fitnessTarget = 10, settings = "settings.txt", guestsPref = "preferences.csv", output = "output.csv"):
@@ -88,7 +91,7 @@ class EPop(object):
         self.TOURNAMENT_COUNT = tourn
         self.PROBABILITY_MUTATE = prob
         self.FITNESS_GOAL = fitnessTarget
-        self.DIVERSITY_TEST_SIZE = 20
+        self.DIVERSITY_TEST_SIZE = 50
         self.guestList = []
         self.guests = []
         self.population = []
@@ -98,7 +101,7 @@ class EPop(object):
         self.OUTPUT_FILE = output
         self.outputActive = False
         self.defaultLine = []
-        self.DELAY = 2
+        self.DELAY = 1
         print("\t\t\tCOEN 432 - Part A")
         print("\t\t\tPlease note, -1 is an empty seat")
         print("Population Size:\t\t" + str(self.POPULATION_SIZE))
@@ -108,6 +111,7 @@ class EPop(object):
         print("Children from tournament:\t" + str(self.CHILDREN_COUNT))
         print("Probablity of Mutation:\t\t" + str(self.PROBABILITY_MUTATE))
         print("Fitness goal:\t\t\t" + str(self.FITNESS_GOAL))
+        print("Diversity test size:\t\t" + str(self.DIVERSITY_TEST_SIZE))
         # Initialize parameters and guest list
         self.initialize()
         # Creating initial population
@@ -175,11 +179,16 @@ class EPop(object):
                             penalty += 15 # Same table, but not next to
         return penalty;
 
-    def two_child_tournament(self):
+    def tournament(self, tournamentCount, firstOnes = False):
         parents = []
         random.seed(version = 2)
-        for i in range (self.TOURNAMENT_COUNT):
-            parents.append(self.population[random.randint(0, self.POPULATION_SIZE - 2)])
+        index = -1
+        for i in range (tournamentCount):
+            if firstOnes:
+                index = i
+            else:
+                index = random.randint(0, len(self.population) - 1 )
+            parents.append(self.population[index])
             if self.outputActive: 
                 print(parents[i])
         winners = []
@@ -242,7 +251,7 @@ class EPop(object):
         return children;
 
     # Preferred method of Recombination for this situation
-    def PMX(self, parents):
+    def PMX(self, parents, len = -1, index = -1):
         # in the odd occurence that the same parent is selected (Parent selection is a Random Tournament)
         # PMX produces identical children with identical parents. Therefore, we skip
         if parents[0] == parents[1]:
@@ -254,9 +263,15 @@ class EPop(object):
             # Initilize seats as -2 to indicate not used. -1 indicates an empty seat
             for k in range (self.SEATS):
                 children[i].plan.append(-2)
-        # Select random subset
-        length = random.randint(1, self.SEATS - 1)
-        startIndex = random.randint(0, self.SEATS - length)
+        # Select random subset or given if length and index provided(for testing)
+        if len == -1:
+            length = random.randint(1, self.SEATS - 1)
+        else:
+            length = len
+        if index == -1:
+            startIndex = random.randint(0, self.SEATS - length)
+        else:
+            startIndex = index
         i = -1 # Allows for alternating parents to run each PMX twice
         for child in children:
             i += 1
@@ -354,15 +369,13 @@ class EPop(object):
 
     def selectLowestFitness(self, pop):
         lowest = 99999
-        index = 0
-        count = 0
+        index = -1
         current = 9999999
         for plan in pop:
             current = self.realFitness(plan)
             if current < lowest:
                 lowest = current
-                index = count
-            count += 1
+                index = pop.index(plan)
         return pop[index];
 
     def fitnessGoalReached(self, population):
@@ -447,29 +460,12 @@ class EPop(object):
             emptySeatsB = seetingB.plan[ lBB : uBB ].count(-1)
             for j in range(min(emptySeatsA, emptySeatsB)):
                 temp += 1
-            #empty = [0, 0]
-            #for w in range(int(self.TABLE_SIZE)):
-            #    if personATable == personBTable:
-            #        currentSeat = w + ( (personATable - 1) * int(self.TABLE_SIZE) )
-            #        if seetingA.plan[currentSeat] == -1:
-            #            empty[0] += 1
-            #        if seetingB.plan[currentSeat] == -1:
-            #            empty[1] += 1
-            #        if empty[0] == empty[1] and empty[0] != 0:
-            #            if empty[0] >= empty[1]:
-            #                for j in range(empty[1]):
-            #                    temp += 1
-            #            else:
-            #                for j in range(empty[0]):
-            #                    temp += 1
-            #print(empty)
-            #print("Diversity:\t" + str(diversity) + "\ttemp:\t" + str(temp))
             diversity += (int(self.TABLE_SIZE) - 1 - temp)
         return diversity;
 
-    def populationDiversity(self, pop):
+    def populationDiversity(self, pop, size):
         diversity = 0
-        myList = self.getSortedList(pop, self.DIVERSITY_TEST_SIZE, True)
+        myList = self.getSortedList(pop, size, True)
         testPop = []
         # Take the corresponding seetingArrangement objects from the combined population
         for i in range(len(myList)):
@@ -534,10 +530,10 @@ class EPop(object):
                 if len(topFive) == 0:
                     topFive.append(pop[popIndex])
                 else:
-                    if pop[popIndex] in topFive:
+                    if pop[popIndex].plan in topFive:
                         continue;
                     temp = topFive.pop()
-                    if self.diversity(temp, pop[popIndex]) > 50:
+                    if self.diversity(temp, pop[popIndex]) > 100:
                         topFive.append(temp)
                     else:
                         topFive.append(temp)
@@ -546,7 +542,9 @@ class EPop(object):
                 break
         return topFive;
 
-    def generations(self):
+
+
+    def generations(self, useDiversity = True):
         # Generation Loop: Number limits the generations, or a previously set upper/lower bound
         for i in range(self.NUMBER_OF_GENERATIONS):
             print("Generation " + str(i + 1) + ":\t     ", end = "")
@@ -557,12 +555,12 @@ class EPop(object):
                 if (k % math.ceil(int(uB) / 20) == 0):
                     print("||", end = "", flush = True)    
                 if self.outputActive:
-                        print("Tournament selection, " + str(self.TOURNAMENT_COUNT) + " parents, " + str(self.CHILDREN_COUNT) + " offspring")
+                    print("Tournament selection, " + str(self.TOURNAMENT_COUNT) + " parents, " + str(self.CHILDREN_COUNT) + " offspring")   
                 chldren = []
                 winners = []
                 survivors = []
                 # Parent Selection - Tournament w/ replacement - 5 parents, select 2
-                winners = self.two_child_tournament()             
+                winners = self.tournament(self.TOURNAMENT_COUNT)             
                 self.output("Winners / Offspring:", winners)
 
                 ## Recombination - Permutation - PMX - 2 children
@@ -575,15 +573,16 @@ class EPop(object):
                 children = self.mutate(children)
                 self.output("Mutation stage: - Inversion, Pm = 0.10", children)
                 
-                # Diversity Maintenance - Crowding
-                self.output("Diversity Stage: - Crowding: Parents", winners)
-                self.output("Diversity Stage: - Crowding: Children", children)
-                survivors = self.crowding(children, winners) 
-                self.output("Diversity Stage: - Crowding: Survivors", survivors)
+                if useDiversity:
+                    # Diversity Maintenance - Crowding
+                    self.output("Diversity Stage: - Crowding: Parents", winners)
+                    self.output("Diversity Stage: - Crowding: Children", children)
+                    children = self.crowding(children, winners) 
+                    self.output("Diversity Stage: - Crowding: Survivors", survivors)
 
 
                 # Collect population size * growth rate
-                for child in survivors:
+                for child in children:
                     self.childPopulation.append(child)
                 # Continue
             # Extra output for loading bar
@@ -592,23 +591,23 @@ class EPop(object):
             #self.outputActive = True
             # Output to demonstrate
             self.output("Parent pop:", self.population)
-            print("Parent Pop Size:\t" + str(len(self.population)) + "\tLowest Fitness:\t" + str(self.realFitness(self.selectLowestFitness(self.population))) + "\tDiversity:\t" + str(self.populationDiversity(self.population)))
+            print("Parent Pop Size:\t" + str(len(self.population)) + "\tLowest Fitness:\t" + str(self.realFitness(self.selectLowestFitness(self.population))) + "\tDiversity:\t" + str(self.populationDiversity(self.population, self.DIVERSITY_TEST_SIZE)))
 
             self.output("Child Pop:", self.childPopulation)
-            print("Child Pop Size:\t\t" + str(len(self.childPopulation)) + "\tLowest Fitness:\t" + str(self.realFitness(self.selectLowestFitness(self.childPopulation))) + "\tDiversity:\t" + str(self.populationDiversity(self.childPopulation)))
+            print("Child Pop Size:\t\t" + str(len(self.childPopulation)) + "\tLowest Fitness:\t" + str(self.realFitness(self.selectLowestFitness(self.childPopulation))) + "\tDiversity:\t" + str(self.populationDiversity(self.childPopulation, self.DIVERSITY_TEST_SIZE)))
 
+          
             # (u + lamba) selection - top POPULATION_SIZE of childPopulation and population are used as new population
             self.population = self.selectSurvivor(False, self.POPULATION_SIZE).copy()
             self.output("New Parent Pop:", self.population)
-            print("New Parent Pop Size:\t" + str(len(self.population)) + "\tLowest Fitness:\t" + str(self.realFitness(self.selectLowestFitness(self.population))) + "\tDiversity:\t" + str(self.populationDiversity(self.population)))
+            print("New Parent Pop Size:\t" + str(len(self.population)) + "\tLowest Fitness:\t" + str(self.realFitness(self.selectLowestFitness(self.population))) + "\tDiversity:\t" + str(self.populationDiversity(self.population, self.DIVERSITY_TEST_SIZE)))
             
             ## (u, lamba) selection - top POPULATION_SIZE of childPopulation and population are used as new population
-            #self.population = self.selectSurvivor(True).copy()
+            #self.population = self.selectSurvivor(True, self.POPULATION_SIZE).copy()
             #self.output("New Parent Pop:", self.population)
-            #print("New Parent Pop Size:\t" + str(len(self.population)) + "\tLowest Fitness:\t" + str(self.realFitness(self.selectLowestFitness(self.population))) + "\tDiversity:\t" + str(self.populationDiversity(self.population)))
+            #print("New Parent Pop Size:\t" + str(len(self.population)) + "\tLowest Fitness:\t" + str(self.realFitness(self.selectLowestFitness(self.population))) + "\tDiversity:\t" + str(self.populationDiversity(self.population, self.DIVERSITY_TEST_SIZE)))
 
-
-            self.outputActive = False            
+            #self.outputActive = False            
             
             # Test for end condition
             best = self.selectLowestFitness(self.population)
@@ -621,7 +620,10 @@ class EPop(object):
                 last = []
                 for child in topFive:
                     print(child)
-                return best;
+                returnData = []
+                print("\nSAVING DATA, PLEASE WAIT A MOMENT FOR A FULL DIVERSITY CHECK.", flush = True)
+                returnData = [topFive, str(len(self.population)), self.realFitness(self.selectLowestFitness(self.population)), self.populationDiversity(self.population, len(self.population)), i]
+                return returnData;
             
             # Give delay for legibility
             time.sleep(self.DELAY)
@@ -633,10 +635,12 @@ class EPop(object):
         print(best)
         self.outputCSV(best)
         topFive = self.selectTopFive(self.population)
+        print("\nSAVING DATA, PLEASE WAIT A MOMENT FOR A FULL DIVERSITY CHECK.", flush = True)
+        returnData = [topFive, str(len(self.population)), self.realFitness(self.selectLowestFitness(self.population)), self.populationDiversity(self.population, len(self.population)), self.NUMBER_OF_GENERATIONS]
         print("Top five:")
         for child in topFive:
             print(child)
-        return topFive;
+        return returnData;
 
     def blockPrint(self):
         sys.stdout = open(os.devnull, 'w')
@@ -646,30 +650,40 @@ class EPop(object):
 
     def testSuite(self):
         default = seetingArrangement.seetingArrangement([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, -1, 12, 13, 14, -1, -1, 15])
-        if self.realFitness(default) == 0:
-            print("Fitness check succeeded")
+        temp = seetingArrangement.seetingArrangement([1, 2, 15, 4, 5, 6, 7, 8, 9, 10, 11, -1, 12, 13, 14, -1, -1, 3])
+        testA = self.realFitness(default)
+        testB = self.realFitness(temp)
+        if testA == 0 and testB == 120:
+            print("Fitness check\t\t\tsucceeded")
         else:
-            print("Fitness check failed")
+            print("Fitness check\t\t\tfailed")
+
+
         if self.outputCSV(default):
-            print("Output check succeeded")
+            print("Output check\t\t\tsucceeded")
         else:
-            print("Output check failed")
-        temp = self.diversity(default, default)
-        print(temp)
-        if temp == 0:
-            print("Diversity check succeeded")
+            print("Output check\t\t\tfailed")
+
+
+        temp = seetingArrangement.seetingArrangement([1, 2, 15, 4, 5, 6, 7, 8, 9, 10, 11, -1, 12, 13, 14, -1, -1, 3])
+        testA = self.diversity(default, default)
+        testB = self.diversity(default, temp)
+        temp = seetingArrangement.seetingArrangement([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, -1, 15, 12, 13, 14, -1, -1])
+        testC = self.diversity(default, temp)
+        if testA == 0 and testB == 19 and testC == 8:
+            print("Diversity check\t\t\tsucceeded")
         else:
-            print("Diversity check failed")
+            print("Diversity check\t\t\tfailed")
 
         temp = seetingArrangement.seetingArrangement([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, -1, 12, 13, 14, -1, -1, 15])
         if temp.plan == default.plan:
             temp.shuffle()
             if temp.plan == default.plan:
-                print("Object Shuffle failed")
+                print("Object Shuffle\t\t\tfailed")
             else:
-                print("Object Shuffle succeeded")
+                print("Object Shuffle\t\t\tsucceeded")
         else:
-            print("Object matching failed")
+            print("Object matching\t\t\tfailed")
 
 
         self.blockPrint()
@@ -681,9 +695,9 @@ class EPop(object):
         self.readSettings()
         self.enablePrint()
         if self.NUMBER_OF_TABLES != 0 and self.TABLE_SIZE != 0 and self.NUMBER_OF_GUESTS != 0 and self.NUMBER_OF_TABLES != 0 and self.SEATS != 0:
-            print("Settings read succeeded")
+            print("Settings read\t\t\tsucceeded")
         else:
-            print("Settings read failed")
+            print("Settings read\t\t\tfailed")
         
         self.blockPrint()
         self.guestList = []
@@ -691,53 +705,74 @@ class EPop(object):
         self.readGuests()
         self.enablePrint()
         if len(self.guestList) > 0 and len(self.guests) > 0:
-            print("Preferences read succeeded")
+            print("Preferences read\t\tsucceeded")
         else:
-            print("Preferences read failed")        
+            print("Preferences read\t\tfailed")        
         
         self.blockPrint()
         self.population = []
         self.population = self.populate()
         self.enablePrint()
         if len(self.population) > 0:
-            print("Populate succeeded")
+            print("Populate\t\t\tsucceeded")
         else:
-            print("Populate failed")  
+            print("Populate\t\t\tfailed")  
             
         parents = []
         children = []
-        parents = self.two_child_tournament()
-        children = self.two_child_tournament()
-        if parents[0] != children[0] and parents[0] != children[1] and parents[1] != children[0] and parents[1] != children[1]:
-            print("Two child tournament succeeded (Not a thorough test)")
+        self.population = []
+        temp = seetingArrangement.seetingArrangement([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, -1, 13, 14, -1, -1, 15, 12])
+        self.population.append(temp)
+        self.population.append(seetingArrangement.seetingArrangement([10, 3, 7, 4, 5, 6, 2, 8, 9, 1, 11, -1, 15, 13, 14, -1, -1, 12]))
+        self.population.append(seetingArrangement.seetingArrangement([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 15, 12, 13, 14, -1, -1, -1]))
+        self.population.append(seetingArrangement.seetingArrangement([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, -1, 12, 13, 14, -1, -1, 15]))
+        self.population.append(seetingArrangement.seetingArrangement([10, 3, 7, 4, 5, 6, 2, 8, 9, 1, 11, -1, 15, 13, 14, -1, -1, 12]))
+        children = self.tournament(5, True)
+        line2 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, -1, 13, 14, -1, -1, 15, 12]
+        line1 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, -1, 12, 13, 14, -1, -1, 15]
+        if line1 == children[0].plan and line2 == children[1].plan:
+            print("Tournament\t\t\tsucceeded")
         else:
-            print("Two child tournament failed (Not a thorough test)") 
+            print("Tournament\t\t\tfailed")
+
+
 
 
         temp = seetingArrangement.seetingArrangement([10, 3, 7, 4, 5, 6, 2, 8, 9, 1, 11, -1, 15, 13, 14, -1, -1, 12])
         parents = []
         parents.append(temp)
         parents.append(default)
-        temp = seetingArrangement.seetingArrangement([10, 3, 7, 4, 5, 6, 2, 8, 9, 1, 11, -1, 15, 13, 14, -1, -1, 12])
-        default = seetingArrangement.seetingArrangement([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, -1, 12, 13, 14, -1, -1, 15])
-        parents = self.PMX(parents)
-        if parents[0].plan != temp.plan and parents[1].plan != default.plan:
-            print("PMX succeeded (Not a thorough test)")
+        parents = self.PMX(parents, 8, 4)
+        line1 = [10, 7, 3, 4, 5, 6, 2, 8, 9, 1, 11, -1, 12, 13, 14, -1, -1, 15]
+        line2 = [1, 3, 2, 4, 5, 6, 7, 8, 9, 10, 11, -1, 15, 13, 14, -1, -1, 12]
+        if parents[0].plan == line1 and parents[1].plan == line2:
+            print("PMX\t\t\t\tsucceeded")
         else:
-            print("PMX failed (Not a thorough test)") 
+            print("PMX\t\t\t\tfailed") 
 
-        # selectTop Five
-        # TODO: fix diversity and recheck
+
         children = []
+        parents = []
+        parents.append(default)
+        temp = seetingArrangement.seetingArrangement([10, 3, 7, 4, 5, 6, 2, 8, 9, 1, 11, -1, 15, 13, 14, -1, -1, 12])
+        parents.append(temp)
+        temp = seetingArrangement.seetingArrangement([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, -1, 13, 14, -1, -1, 15, 12])
+        children.append(temp)
+        temp = seetingArrangement.seetingArrangement([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, -1, 13, 14, -1, -1, 15, 12])
+        children.append(temp)
         survivors = []
         children.append(default)
         children.append(temp)
         survivors = self.crowding(children, parents)
-        if survivors[0].plan == default.plan and survivors[1].plan == default.plan:
-            print("Crowding succeeded")
+        line1 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, -1, 13, 14, -1, -1, 15, 12]
+        line2 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, -1, 13, 14, -1, -1, 15, 12]
+        if survivors[0].plan == line1 and survivors[1].plan == line2:
+            print("Crowding\t\t\tsucceeded")
         else:
-            print("Crowding failed") 
+            print("Crowding\t\t\tfailed") 
 
+
+        temp = seetingArrangement.seetingArrangement([10, 3, 7, 4, 5, 6, 2, 8, 9, 1, 11, -1, 15, 13, 14, -1, -1, 12])
         survivors = []
         population = []
         population.append(temp)
@@ -745,10 +780,11 @@ class EPop(object):
         population.append(temp)
         survivors = self.selectLowestFitness(population)
         if survivors.plan == default.plan:
-            print("SelectLowestFitness succeeded")
+            print("SelectLowestFitness\t\tsucceeded")
         else:
-            print("SelectLowestFitness failed") 
+            print("SelectLowestFitness\t\tfailed") 
      
+
         self.population = []
         survivors = []
         self.blockPrint()
@@ -760,23 +796,96 @@ class EPop(object):
         survivors.append(self.selectLowestFitness(self.population))
         self.population = self.selectSurvivor(False, 5)
         if survivors[1] == self.population[0]:
-            print("SelectSurvivor succeeded")
+            print("SelectSurvivor\t\t\tsucceeded")
         else:
-            print("SelectSurvivor failed")
+            print("SelectSurvivor\t\t\tfailed")
+
+
 
         temp = seetingArrangement.seetingArrangement([10, 3, 7, 4, 5, 6, 2, 8, 9, 1, 11, -1, 15, 13, 14, -1, -1, 12])
         default = seetingArrangement.seetingArrangement([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, -1, 12, 13, 14, -1, -1, 15])
         population = []
         initial = 0
-        population = [temp] * 200
-        initial = self.populationDiversity(population)
+        self.blockPrint()
+        population = self.populate()
+        initial = self.populationDiversity(population, self.DIVERSITY_TEST_SIZE)
         final = 0
-        population = []
-        population = [default] * 200
-        final = self.populationDiversity(population)
+        population = self.populate()
+        final = self.populationDiversity(population, self.DIVERSITY_TEST_SIZE)
         if final != initial:
-            print("PopulationDiversity succeeded")
+            initial = self.populationDiversity(population, self.DIVERSITY_TEST_SIZE)
+            self.enablePrint()
+            if final == initial:
+                print("PopulationDiversity\t\tsucceeded")
+            else:
+                print("PopulationDiversity\t\tfailed")
         else:
-            print("PopulationDiversity failed")
+            self.enablePrint()
+            print("PopulationDiversity\t\tfailed")
+        # selectTop Five
+        return;
+
+    def testDiversity(self):
+        self.TABLE_SIZE = 0
+        self.NUMBER_OF_GUESTS = 0
+        self.NUMBER_OF_TABLES = 0
+        self.SEATS = 0
+        self.GROWTH_RATE = 6
+        self.POPULATION_SIZE = 500
+        self.CHILD_POPULATION = self.POPULATION_SIZE * self.GROWTH_RATE
+        self.CHILDREN_COUNT = 2
+        self.NUMBER_OF_GENERATIONS = 10
+        self.TOURNAMENT_COUNT = 5
+        self.PROBABILITY_MUTATE = 0.3
+        self.FITNESS_GOAL = 10
+        self.DIVERSITY_TEST_SIZE = 50
+        self.guestList = []
+        self.guests = []
+        self.population = []
+        self.childPopulation = []
+        self.SETTINGS_FILE = "settings.txt"
+        self.GUESTS_FILE = "preferences.csv"
+        self.OUTPUT_FILE = "output.csv"
+        self.outputActive = False
+        self.defaultLine = []
+        self.DELAY = 1
+        print("\t\t\tCOEN 432 - Part A")
+        print("\t\t\tPlease note, -1 is an empty seat")
+        print("Population Size:\t\t" + str(self.POPULATION_SIZE))
+        print("Child Population Size:\t\t" + str(self.CHILD_POPULATION))
+        print("Number of generations:\t\t" + str(self.NUMBER_OF_GENERATIONS))
+        print("Tournament selection size:\t" + str(self.TOURNAMENT_COUNT))
+        print("Children from tournament:\t" + str(self.CHILDREN_COUNT))
+        print("Probablity of Mutation:\t\t" + str(self.PROBABILITY_MUTATE))
+        print("Fitness goal:\t\t\t" + str(self.FITNESS_GOAL))
+        # Initialize parameters and guest list
+        self.initialize()
+        # Creating initial population
+        self.population = self.populate()
+        # Backup
+        populationBackup = self.population
+        data = []
+
+        print("\nWITHOUT DIVERSITY MEASURES - NO CROWDING:")
+        data.append(self.generations(False))
+
+        self.population = self.populate(populationBackup)
+
+        if (populationBackup != self.population):
+            print("ERROR: Different populations")
+        else:
+            print("\nWITH DIVERSITY MEASURES - CROWDING:")
+            data.append(generations(True))
+
+        for k in range(len(data)):
+            if k == 0:
+                print("WITHOUT DIVERSITY MEASURES - NO CROWDING:")
+            elif k == 1:
+                print("\nWITH DIVERSITY MEASURES - CROWDING:")
+            else:
+                print("ERROR")
+            for i in range(5):
+                print(data[k][i])
+            print("Pop Size:\t" + str(data[k][1]) + "\tLowest Fitness:\t" + str(data[k][2]) + "\tDiversity:\t" + str(data[k][3]) + "\t\tGenerations:\t" + str(data[k][4]))
 
         return;
