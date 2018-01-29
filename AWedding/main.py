@@ -8,11 +8,11 @@
 
 import EPop
 
-obj1 = EPop.EPop(pop = 500, 
+obj1 = EPop.EPop(pop = 200, 
                  children = 2, 
-                 generations = 10, 
+                 generations = 20, 
                  tourn = 5, 
-                 prob = 0.3, 
+                 prob = 0.35, 
                  fitnessTarget = 10, 
                  settings = "settings.txt", 
                  guestsPref = "preferences.csv",
@@ -20,7 +20,7 @@ obj1 = EPop.EPop(pop = 500,
 
 obj1.testSuite()
 
-#obj1.generations()
+#obj1.generations(True)
 
-obj1.testDiversity(False)
+obj1.testDiversity(False, False)
      
