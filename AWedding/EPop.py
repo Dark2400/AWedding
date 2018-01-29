@@ -100,6 +100,7 @@ class EPop(object):
         self.GUESTS_FILE = guestsPref
         self.OUTPUT_FILE = output
         self.outputActive = False
+        self.speedIncrease = False
         self.defaultLine = []
         self.DELAY = 1
         print("\t\t\tCOEN 432 - Part A")
@@ -530,30 +531,46 @@ class EPop(object):
                 if len(topFive) == 0:
                     topFive.append(pop[popIndex])
                 else:
-                    if pop[popIndex].plan in topFive:
-                        continue;
-                    temp = topFive.pop()
-                    if self.diversity(temp, pop[popIndex]) > 100:
-                        topFive.append(temp)
-                    else:
-                        topFive.append(temp)
+                    skip = False
+                    for k in range(len(topFive)):
+                       if pop[popIndex].plan in topFive[k].plan:
+                           skip = True
+                           break
+                    if skip:
+                        continue
+                    temp = topFive[len(topFive) - 1]
+                    if self.diversity(temp, pop[popIndex]) > 15:
                         topFive.append(pop[popIndex])
             else:
                 break
         return topFive;
 
-
+    def endCondition(self, generations):
+        best = self.selectLowestFitness(self.population)
+        print("Fitness Goal:\t\tfitness < " + str(self.FITNESS_GOAL) + "\tBest:\t" + str(self.realFitness(best)))
+        print(best)
+        self.outputCSV(best)
+        topFive = self.selectTopFive(self.population)
+        print("Top five:")
+        for child in topFive:
+            print(child)
+        returnData = []
+        print("\nSAVING DATA, PLEASE WAIT A MOMENT FOR A FULL DIVERSITY CHECK.", flush = True)
+        returnData = [topFive, str(len(self.population)), self.realFitness(self.selectLowestFitness(self.population)), self.populationDiversity(self.population, len(self.population)), generations]
+        return returnData;
 
     def generations(self, useDiversity = True):
         # Generation Loop: Number limits the generations, or a previously set upper/lower bound
         for i in range(self.NUMBER_OF_GENERATIONS):
-            print("Generation " + str(i + 1) + ":\t     ", end = "")
+            if not self.speedIncrease:
+                print("Generation " + str(i + 1) + ":\t     ", end = "")
             self.childPopulation = []
             # Apply a u+lambda selection by creating 6 x population size
             uB = int(self.POPULATION_SIZE) * int(self.GROWTH_RATE)
             for k in range(math.ceil(int(uB) / 2)):
-                if (k % math.ceil(int(uB) / 20) == 0):
-                    print("||", end = "", flush = True)    
+                if not self.speedIncrease:
+                    if (k % math.ceil(int(uB) / 20) == 0):
+                        print("||", end = "", flush = True)    
                 if self.outputActive:
                     print("Tournament selection, " + str(self.TOURNAMENT_COUNT) + " parents, " + str(self.CHILDREN_COUNT) + " offspring")   
                 chldren = []
@@ -585,62 +602,40 @@ class EPop(object):
                 for child in children:
                     self.childPopulation.append(child)
                 # Continue
-            # Extra output for loading bar
-            print("||")
+            if not self.speedIncrease:
+                # Extra output for loading bar
+                print("||")
 
-            #self.outputActive = True
-            # Output to demonstrate
-            self.output("Parent pop:", self.population)
-            print("Parent Pop Size:\t" + str(len(self.population)) + "\tLowest Fitness:\t" + str(self.realFitness(self.selectLowestFitness(self.population))) + "\tDiversity:\t" + str(self.populationDiversity(self.population, self.DIVERSITY_TEST_SIZE)))
+                #self.outputActive = True
+                # Output to demonstrate
+                self.output("Parent pop:", self.population)
+                print("Parent Pop Size:\t" + str(len(self.population)) + "\tLowest Fitness:\t" + str(self.realFitness(self.selectLowestFitness(self.population))) + "\tDiversity:\t" + str(self.populationDiversity(self.population, self.DIVERSITY_TEST_SIZE)))
 
-            self.output("Child Pop:", self.childPopulation)
-            print("Child Pop Size:\t\t" + str(len(self.childPopulation)) + "\tLowest Fitness:\t" + str(self.realFitness(self.selectLowestFitness(self.childPopulation))) + "\tDiversity:\t" + str(self.populationDiversity(self.childPopulation, self.DIVERSITY_TEST_SIZE)))
+                self.output("Child Pop:", self.childPopulation)
+                print("Child Pop Size:\t\t" + str(len(self.childPopulation)) + "\tLowest Fitness:\t" + str(self.realFitness(self.selectLowestFitness(self.childPopulation))) + "\tDiversity:\t" + str(self.populationDiversity(self.childPopulation, self.DIVERSITY_TEST_SIZE)))
 
           
-            # (u + lamba) selection - top POPULATION_SIZE of childPopulation and population are used as new population
-            self.population = self.selectSurvivor(False, self.POPULATION_SIZE).copy()
-            self.output("New Parent Pop:", self.population)
-            print("New Parent Pop Size:\t" + str(len(self.population)) + "\tLowest Fitness:\t" + str(self.realFitness(self.selectLowestFitness(self.population))) + "\tDiversity:\t" + str(self.populationDiversity(self.population, self.DIVERSITY_TEST_SIZE)))
-            
-            ## (u, lamba) selection - top POPULATION_SIZE of childPopulation and population are used as new population
-            #self.population = self.selectSurvivor(True, self.POPULATION_SIZE).copy()
+            ## (u + lamba) selection - top POPULATION_SIZE of childPopulation and population are used as new population
+            #self.population = self.selectSurvivor(False, self.POPULATION_SIZE).copy()
             #self.output("New Parent Pop:", self.population)
             #print("New Parent Pop Size:\t" + str(len(self.population)) + "\tLowest Fitness:\t" + str(self.realFitness(self.selectLowestFitness(self.population))) + "\tDiversity:\t" + str(self.populationDiversity(self.population, self.DIVERSITY_TEST_SIZE)))
+            
+            # (u, lamba) selection - top POPULATION_SIZE of childPopulation and population are used as new population
+            self.population = self.selectSurvivor(True, self.POPULATION_SIZE).copy()
+            if not self.speedIncrease:
+                self.output("New Parent Pop:", self.population)
+                print("New Parent Pop Size:\t" + str(len(self.population)) + "\tLowest Fitness:\t" + str(self.realFitness(self.selectLowestFitness(self.population))) + "\tDiversity:\t" + str(self.populationDiversity(self.population, self.DIVERSITY_TEST_SIZE)))
 
-            #self.outputActive = False            
+                #self.outputActive = False            
             
             # Test for end condition
-            best = self.selectLowestFitness(self.population)
-            print("Fitness Goal:\t\tfitness < " + str(self.FITNESS_GOAL) + "\tBest:\t" + str(self.realFitness(best)))
-            print(best)
             if self.fitnessGoalReached(self.population):
-                self.outputCSV(best)
-                topFive = self.selectTopFive(self.population)
-                print("Top five:")
-                last = []
-                for child in topFive:
-                    print(child)
-                returnData = []
-                print("\nSAVING DATA, PLEASE WAIT A MOMENT FOR A FULL DIVERSITY CHECK.", flush = True)
-                returnData = [topFive, str(len(self.population)), self.realFitness(self.selectLowestFitness(self.population)), self.populationDiversity(self.population, len(self.population)), i]
-                return returnData;
-            
-            # Give delay for legibility
-            time.sleep(self.DELAY)
+                return self.endCondition(i);
+            if not self.speedIncrease:
+                # Give delay for legibility
+                time.sleep(self.DELAY)
 
-
-        best = self.selectLowestFitness(self.population)
-        print("\n" + str(self.NUMBER_OF_GENERATIONS) + " generations have elapsed.")
-        print("Best:\t" + str(self.realFitness(best)) + ":\t")
-        print(best)
-        self.outputCSV(best)
-        topFive = self.selectTopFive(self.population)
-        print("\nSAVING DATA, PLEASE WAIT A MOMENT FOR A FULL DIVERSITY CHECK.", flush = True)
-        returnData = [topFive, str(len(self.population)), self.realFitness(self.selectLowestFitness(self.population)), self.populationDiversity(self.population, len(self.population)), self.NUMBER_OF_GENERATIONS]
-        print("Top five:")
-        for child in topFive:
-            print(child)
-        return returnData;
+        return self.endCondition(self.NUMBER_OF_GENERATIONS);
 
     def blockPrint(self):
         sys.stdout = open(os.devnull, 'w')
@@ -653,6 +648,8 @@ class EPop(object):
         temp = seetingArrangement.seetingArrangement([1, 2, 15, 4, 5, 6, 7, 8, 9, 10, 11, -1, 12, 13, 14, -1, -1, 3])
         testA = self.realFitness(default)
         testB = self.realFitness(temp)
+        print(testA)
+        print(testB)
         if testA == 0 and testB == 120:
             print("Fitness check\t\t\tsucceeded")
         else:
@@ -825,7 +822,7 @@ class EPop(object):
         # selectTop Five
         return;
 
-    def testDiversity(self):
+    def testDiversity(self, fast):
         self.TABLE_SIZE = 0
         self.NUMBER_OF_GUESTS = 0
         self.NUMBER_OF_TABLES = 0
@@ -849,15 +846,9 @@ class EPop(object):
         self.outputActive = False
         self.defaultLine = []
         self.DELAY = 1
-        print("\t\t\tCOEN 432 - Part A")
-        print("\t\t\tPlease note, -1 is an empty seat")
-        print("Population Size:\t\t" + str(self.POPULATION_SIZE))
-        print("Child Population Size:\t\t" + str(self.CHILD_POPULATION))
-        print("Number of generations:\t\t" + str(self.NUMBER_OF_GENERATIONS))
-        print("Tournament selection size:\t" + str(self.TOURNAMENT_COUNT))
-        print("Children from tournament:\t" + str(self.CHILDREN_COUNT))
-        print("Probablity of Mutation:\t\t" + str(self.PROBABILITY_MUTATE))
-        print("Fitness goal:\t\t\t" + str(self.FITNESS_GOAL))
+        self.speedIncrease = fast
+        if self.speedIncrease:
+            self.blockPrint()
         # Initialize parameters and guest list
         self.initialize()
         # Creating initial population
@@ -875,17 +866,20 @@ class EPop(object):
             print("ERROR: Different populations")
         else:
             print("\nWITH DIVERSITY MEASURES - CROWDING:")
-            data.append(generations(True))
+            data.append(self.generations(True))
 
+        self.enablePrint()
         for k in range(len(data)):
             if k == 0:
-                print("WITHOUT DIVERSITY MEASURES - NO CROWDING:")
+                print("WITHOUT DIVERSITY MEASURES - NO CROWDING: Index: " + str(data.index(data[0])))
             elif k == 1:
                 print("\nWITH DIVERSITY MEASURES - CROWDING:")
             else:
                 print("ERROR")
-            for i in range(5):
-                print(data[k][i])
+            for child in data[k][0]:
+                print(child)
+                print("Fitness:\t" + str(self.realFitness(child)))
+            print("Diversity:\t" + str(self.populationDiversity(data[k][0], len(data[k][0]))))
             print("Pop Size:\t" + str(data[k][1]) + "\tLowest Fitness:\t" + str(data[k][2]) + "\tDiversity:\t" + str(data[k][3]) + "\t\tGenerations:\t" + str(data[k][4]))
 
         return;

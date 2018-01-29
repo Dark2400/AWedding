@@ -22,5 +22,5 @@ obj1.testSuite()
 
 #obj1.generations()
 
-obj1.testDiversity()
+obj1.testDiversity(False)
      
