@@ -35,13 +35,6 @@ class seetingArrangement(object):
         self.plan = newPlan.copy()
         return;
 
-    def setFitness(self, fit):
-        self.fitness = fit
-        return;
-
-    def getFitness(self):
-        return self.fitness;
-
 
 
 

@@ -91,7 +91,7 @@ class EPop(object):
         self.TOURNAMENT_COUNT = tourn
         self.PROBABILITY_MUTATE = prob
         self.FITNESS_GOAL = fitnessTarget
-        self.DIVERSITY_TEST_SIZE = 15
+        self.DIVERSITY_TEST_SIZE = 10
         self.guestList = []
         self.guests = []
         self.population = []
@@ -540,8 +540,16 @@ class EPop(object):
                 break
         return topFive;
 
-    def endCondition(self, generations):
+    def endCondition(self, generations, lambdaPlus, useDiversity):
         best = self.selectLowestFitness(self.population)
+        if lambdaPlus:
+            print("Lambda + u Selection")
+        else:
+            print("Lambda, u Selection")
+        if useDiversity:
+            print("Crowding used")
+        else:
+            print("No diversity measures used")
         print("Fitness Goal:\t\tfitness < " + str(self.FITNESS_GOAL) + "\tBest:\t" + str(self.realFitness(best)))
         print(best)
         self.outputCSV(best)
@@ -609,7 +617,7 @@ class EPop(object):
                 self.output("Child Pop:", self.childPopulation)
                 print("Child Pop Size:\t\t" + str(len(self.childPopulation)) + "\tLowest Fitness:\t" + str(self.realFitness(self.selectLowestFitness(self.childPopulation))) + "\tDiversity:\t" + str(self.populationDiversity(self.childPopulation, self.DIVERSITY_TEST_SIZE)))
 
-            if self.lambdaPlus:
+            if lambdaPlus:
                 # (u + lamba) selection - top POPULATION_SIZE of childPopulation and population are used as new population
                 self.population = self.selectSurvivor(False, self.POPULATION_SIZE).copy()
                 if not self.speedIncrease:
@@ -626,12 +634,12 @@ class EPop(object):
             
             # Test for end condition
             if self.fitnessGoalReached(self.population):
-                return self.endCondition(i);
+                return self.endCondition(i, lambdaPlus, useDiversity);
             if not self.speedIncrease:
                 # Give delay for legibility
                 time.sleep(self.DELAY)
 
-        return self.endCondition(self.NUMBER_OF_GENERATIONS);
+        return self.endCondition(self.NUMBER_OF_GENERATIONS, lambdaPlus, useDiversity);
 
     def blockPrint(self):
         sys.stdout = open(os.devnull, 'w')
@@ -640,22 +648,41 @@ class EPop(object):
         sys.stdout = sys.__stdout__
 
     def testSuite(self):
+
+        self.blockPrint()
+        self.NUMBER_OF_TABLES = 0
+        self.TABLE_SIZE = 0
+        self.NUMBER_OF_GUESTS =0
+        self.NUMBER_OF_TABLES = 0
+        self.SEATS = 0
+        self.readSettings()
+        self.enablePrint()
+        if self.NUMBER_OF_TABLES != 0 and self.TABLE_SIZE != 0 and self.NUMBER_OF_GUESTS != 0 and self.NUMBER_OF_TABLES != 0 and self.SEATS != 0:
+            print("Settings read\t\t\tsucceeded")
+        else:
+            print("Settings read\t\t\tfailed")
+
+
+        self.TABLE_SIZE = 6
+        self.NUMBER_OF_GUESTS = 15
+        self.SEATS = 18
+
         default = seetingArrangement.seetingArrangement([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, -1, 12, 13, 14, -1, -1, 15])
-        #temp = seetingArrangement.seetingArrangement([1, 2, 15, 4, 5, 6, 7, 8, 9, 10, 11, -1, 12, 13, 14, -1, -1, 3])
-        #testA = self.realFitness(default)
-        #testB = self.realFitness(temp)
-        #print(testA)
-        #print(testB)
-        #if testA == 0 and testB == 120:
-        #    print("Fitness check\t\t\tsucceeded")
-        #else:
-        #    print("Fitness check\t\t\tfailed")
+        temp = seetingArrangement.seetingArrangement([1, 2, 15, 4, 5, 6, 7, 8, 9, 10, 11, -1, 12, 13, 14, -1, -1, 3])
+        testA = self.realFitness(default)
+        testB = self.realFitness(temp)
+        print(testA)
+        print(testB)
+        if testA == 0 and testB == 120:
+            print("Fitness check\t\t\tsucceeded")
+        else:
+            print("Fitness check\t\t\tfailed")
 
 
-        #if self.outputCSV(default):
-        #    print("Output check\t\t\tsucceeded")
-        #else:
-        #    print("Output check\t\t\tfailed")
+        if self.outputCSV(default):
+            print("Output check\t\t\tsucceeded")
+        else:
+            print("Output check\t\t\tfailed")
         temp = seetingArrangement.seetingArrangement([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, -1, 12, 13, 14, -1, -1, 15])
         if temp.plan == default.plan:
             temp.shuffle()
@@ -698,18 +725,6 @@ class EPop(object):
 
 
 
-        self.blockPrint()
-        self.NUMBER_OF_TABLES = 0
-        self.TABLE_SIZE = 0
-        self.NUMBER_OF_GUESTS =0
-        self.NUMBER_OF_TABLES = 0
-        self.SEATS = 0
-        self.readSettings()
-        self.enablePrint()
-        if self.NUMBER_OF_TABLES != 0 and self.TABLE_SIZE != 0 and self.NUMBER_OF_GUESTS != 0 and self.NUMBER_OF_TABLES != 0 and self.SEATS != 0:
-            print("Settings read\t\t\tsucceeded")
-        else:
-            print("Settings read\t\t\tfailed")
         
         self.blockPrint()
         self.guestList = []
@@ -863,16 +878,18 @@ class EPop(object):
         self.DELAY = 1
         self.speedIncrease = fast
 
-        if self.speedIncrease:
-            self.blockPrint()
+  
+        self.blockPrint()
         # Initialize parameters and guest list
         self.initialize()
         # Creating initial population
         self.population = self.populate()
         # Backup
         populationBackup = self.population
+        self.enablePrint()
         data = []
-
+        if self.speedIncrease:
+            self.blockPrint()
         print("\nWITHOUT DIVERSITY MEASURES - NO CROWDING:")
         data.append(self.generations(False, False))
 
