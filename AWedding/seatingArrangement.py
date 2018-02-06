@@ -1,6 +1,6 @@
 import random
 
-class seetingArrangement(object):
+class seatingArrangement(object):
  # Representation of evolving object. 
  #
  # Represented by a string of integers, with -1 indicating empty and -2 indicating errors.

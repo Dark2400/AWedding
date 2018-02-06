@@ -25,7 +25,7 @@
     <Compile Include="main.py">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="seetingArrangement.py">
+    <Compile Include="seatingArrangement.py">
       <SubType>Code</SubType>
     </Compile>
   </ItemGroup>
